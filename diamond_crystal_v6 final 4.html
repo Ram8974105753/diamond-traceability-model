@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Diamond Supply Chain — Crystal 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--crystal:#C8DAF0;--crystal2:#E0ECFF;--crystal3:#8AA4C0;--crystal-dim:rgba(200,218,240,0.45);--panel-border:rgba(200,218,240,0.22);--obsidian:#030810}
+@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes phaseFlash{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+@keyframes heroTitle{0%{opacity:0;transform:translateY(20px) scale(.94);letter-spacing:.6em}35%{opacity:1;transform:translateY(0) scale(1);letter-spacing:.35em}75%{opacity:1}100%{opacity:0;transform:translateY(-10px) scale(.97)}}
+@keyframes heroSub{0%{opacity:0;transform:translateY(12px)}40%{opacity:.7;transform:translateY(0)}80%{opacity:.7}100%{opacity:0}}
+@keyframes swipeHint{0%,100%{opacity:0;transform:translateX(0)}30%{opacity:.6;transform:translateX(-8px)}70%{opacity:.6;transform:translateX(8px)}}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--obsidian);font-family:'Cormorant Garamond',serif;touch-action:none;-webkit-user-select:none;user-select:none}
+#wrap{width:100vw;height:100vh;position:relative;background:radial-gradient(ellipse 80% 60% at 50% 40%,#060e22 0%,#030810 100%);cursor:grab}
+#wrap.dragging{cursor:grabbing}
+canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%}
+#bloomCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;mix-blend-mode:screen;opacity:.6}
+#phaseFlash{position:absolute;inset:0;z-index:25;pointer-events:none;opacity:0;background:radial-gradient(ellipse 60% 50% at 50% 50%,rgba(200,218,240,.22) 0%,transparent 70%)}
+#transOverlay{position:absolute;inset:0;z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .3s}
+#transOverlay.active{opacity:1}
+#transTitle{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,5vw,52px);font-weight:700;color:var(--crystal2);letter-spacing:.35em;text-transform:uppercase;text-shadow:0 0 40px rgba(200,218,240,.6),0 0 80px rgba(200,218,240,.25);animation:heroTitle 2.2s ease-out forwards}
+#transSub{font-family:'JetBrains Mono',monospace;font-size:clamp(9px,1.4vw,13px);color:rgba(224,236,255,.5);letter-spacing:.2em;margin-top:12px;animation:heroSub 2.2s ease-out forwards;animation-delay:.2s;opacity:0}
+#transProgress{width:120px;height:2px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:24px;overflow:hidden}
+#transProgressFill{height:100%;width:0%;background:linear-gradient(90deg,var(--crystal3),var(--crystal2));border-radius:2px;transition:width .05s linear;box-shadow:0 0 6px var(--crystal2)}
+#vignette{position:absolute;inset:0;z-index:28;pointer-events:none;opacity:0;transition:opacity .5s;background:radial-gradient(ellipse 55% 55% at 50% 50%,transparent 0%,rgba(3,8,16,.9) 100%)}
+#vignette.active{opacity:1}
+#speedLines{position:absolute;inset:0;z-index:27;pointer-events:none;opacity:0;transition:opacity .3s;background:repeating-conic-gradient(from 0deg,transparent 0deg,transparent 8deg,rgba(200,218,240,.014) 8deg,rgba(200,218,240,.014) 9deg)}
+#speedLines.active{opacity:1}
+#topbar{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:88%;max-width:680px;z-index:20;pointer-events:none;background:rgba(6,10,24,.82);border:1px solid var(--panel-border);border-radius:16px;padding:12px 20px 10px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 4px 32px rgba(0,0,0,.8),0 0 0 1px rgba(200,218,240,.06) inset;transition:opacity .5s,transform .5s}
+#topbar.hide{opacity:0;transform:translateX(-50%) translateY(-20px)}
+#brand{font-family:'Cormorant Garamond',serif;font-size:9px;font-weight:300;letter-spacing:.35em;color:var(--crystal-dim);text-transform:uppercase;margin-bottom:8px;text-align:center}
+#tltrack{position:relative;height:2px;background:rgba(255,255,255,.05);border-radius:2px;margin:0 4px 6px}
+#tlfill{position:absolute;top:0;left:0;height:100%;width:0;border-radius:2px;transition:width 1.1s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--crystal3),var(--crystal),var(--crystal2));box-shadow:0 0 8px var(--crystal),0 0 16px rgba(200,218,240,.4)}
+#tldot{position:absolute;top:50%;left:0;width:12px;height:12px;background:var(--obsidian);border:2px solid var(--crystal);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 8px var(--crystal),0 0 16px rgba(200,218,240,.5);transition:left 1.1s cubic-bezier(.4,0,.2,1)}
+#tlnames{display:flex;justify-content:space-between;padding:0 2px}
+.tn{font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,.18);letter-spacing:.06em;transition:color .5s;text-align:center;cursor:pointer;pointer-events:all}
+.tn:hover{color:rgba(224,236,255,.55)}
+
+#ctrls{position:absolute;top:108px;right:16px;display:flex;gap:7px;z-index:20;transition:opacity .5s}
+#ctrls.hide{opacity:0;pointer-events:none}
+.cb{width:34px;height:34px;border-radius:50%;border:1px solid rgba(200,218,240,.28);background:rgba(6,10,24,.85);color:rgba(224,236,255,.65);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s;backdrop-filter:blur(8px)}
+.cb:hover{border-color:var(--crystal);color:var(--crystal2);box-shadow:0 0 12px rgba(200,218,240,.28)}
+#swipeHint{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);z-index:22;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(200,218,240,.32);letter-spacing:.15em;animation:swipeHint 3s ease-in-out infinite;pointer-events:none;white-space:nowrap}
+#swipeHint span{display:inline-block;margin:0 6px}
+#qrpanel{position:absolute;bottom:80px;right:18px;width:168px;background:rgba(6,10,24,.94);border:1px solid rgba(200,218,240,.24);border-radius:14px;padding:14px;z-index:20;opacity:0;transition:opacity .8s;pointer-events:none;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.85),0 0 40px rgba(200,218,240,.07)}
+#qrtitle{font-family:'Cormorant Garamond',serif;font-size:10px;color:var(--crystal2);font-weight:600;text-align:center;letter-spacing:.2em;margin-bottom:10px;text-transform:uppercase}
+#phonebox{width:58px;height:84px;border:1.5px solid rgba(200,218,240,.38);border-radius:9px;margin:0 auto 9px;background:#030810;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(200,218,240,.1)}
+#scanbeam{position:absolute;left:0;right:0;height:1.5px;top:0;background:linear-gradient(90deg,transparent,var(--crystal2),transparent);box-shadow:0 0 6px var(--crystal2)}
+#qrgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1.5px;padding:5px}
+.qpx{width:5px;height:5px;border-radius:.5px}
+#ticklist{list-style:none;margin-top:4px}
+#ticklist li{font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,.25);padding:2.5px 0;display:flex;gap:5px;align-items:center;transition:color .4s;letter-spacing:.03em}
+.ck{color:var(--crystal2);opacity:0;transition:opacity .4s;font-size:9px}
+.ton{color:rgba(224,236,255,.72)!important}.ton .ck{opacity:1!important}
+.bdgs{display:flex;gap:5px;margin-top:9px;justify-content:center}
+.bdg{font-family:'JetBrains Mono',monospace;font-size:7px;padding:3px 6px;border-radius:6px;border:1px solid transparent;opacity:0;transition:opacity .6s;text-align:center;line-height:1.5;letter-spacing:.06em}
+#hud{position:absolute;bottom:0;left:0;right:0;padding:20px 28px 28px;background:linear-gradient(transparent,rgba(3,8,16,.98) 60%);z-index:10;pointer-events:none;transition:opacity .5s,transform .5s}
+#hud.hide{opacity:0;transform:translateY(20px)}
+#hud-inner{display:flex;align-items:flex-end;justify-content:space-between}
+#phase-num{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--crystal-dim);letter-spacing:.25em;margin-bottom:4px}
+#htitle{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;letter-spacing:.12em;line-height:1.1;background:linear-gradient(135deg,var(--crystal3),var(--crystal2),var(--crystal));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 4s linear infinite}
+#hdesc{font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.28);line-height:1.7;margin-top:5px;max-width:520px;letter-spacing:.02em}
+#hud-progress{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--crystal-dim);letter-spacing:.12em;margin-bottom:4px}
+#hud-timer{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+#timerbar{width:80px;height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+#timerfill{height:100%;width:0%;background:var(--crystal);border-radius:2px;box-shadow:0 0 4px var(--crystal)}
+#timerlabel{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--crystal-dim);letter-spacing:.08em}
+#modeInd{position:absolute;top:80px;left:16px;z-index:22;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;color:rgba(200,218,240,.35);pointer-events:none}
+.corner{position:absolute;width:14px;height:14px;opacity:.4;z-index:5}
+.corner-tl{top:0;left:0;border-top:1px solid var(--crystal);border-left:1px solid var(--crystal)}
+.corner-tr{top:0;right:0;border-top:1px solid var(--crystal);border-right:1px solid var(--crystal)}
+.corner-bl{bottom:0;left:0;border-bottom:1px solid var(--crystal);border-left:1px solid var(--crystal)}
+.corner-br{bottom:0;right:0;border-bottom:1px solid var(--crystal);border-right:1px solid var(--crystal)}
+</style>
+</head>
+<body>
+<div id="wrap">
+<div class="corner corner-tl"></div><div class="corner corner-tr"></div><div class="corner corner-bl"></div><div class="corner corner-br"></div>
+<canvas id="dc"></canvas><canvas id="bloomCanvas"></canvas>
+<div id="phaseFlash"></div><div id="vignette"></div><div id="speedLines"></div>
+<div id="transOverlay"><div id="transTitle"></div><div id="transSub"></div><div id="transProgress"><div id="transProgressFill"></div></div></div>
+<div id="topbar">
+  <div id="brand">◈ Diamond Provenance — Confidence · Compliance · Credibility ◈</div>
+  <div id="tltrack"><div id="tlfill"></div><div id="tldot"></div></div>
+  <div id="tlnames">
+    <span class="tn" id="tn0" onclick="gotoPhase(0)">⛏ MINING</span>
+    <span class="tn" id="tn1" onclick="gotoPhase(1)">🔬 SCAN</span>
+    <span class="tn" id="tn2" onclick="gotoPhase(2)">✦ MIDSTREAM</span>
+    <span class="tn" id="tn3" onclick="gotoPhase(3)">⛓ CHAIN</span>
+    <span class="tn" id="tn4" onclick="gotoPhase(4)">🌐 NETWORK</span>
+  </div>
+</div>
+
+<div id="ctrls">
+  <button class="cb" id="ppb" onclick="togglePause()">⏸</button>
+  <button class="cb" onclick="gotoPhase((ph+1)%5)">▶▶</button>
+  <button class="cb" onclick="gotoPhase((ph-1+5)%5)">◀◀</button>
+</div>
+<div id="swipeHint">◂ <span>SWIPE TO NAVIGATE</span> ▸</div>
+<div id="modeInd">◈ AUTO</div>
+<div id="qrpanel">
+  <div id="qrtitle">◈ Consumer Verify</div>
+  <div id="phonebox"><div id="scanbeam"></div><div id="qrgrid"></div></div>
+  <ul id="ticklist">
+    <li id="tk0"><span class="ck">◆</span>Origin: Botswana</li>
+    <li id="tk1"><span class="ck">◆</span>Conflict-Free KP</li>
+    <li id="tk2"><span class="ck">◆</span>0.75ct D VVS1</li>
+    <li id="tk3"><span class="ck">◆</span>ESG: Verified</li>
+    <li id="tk4"><span class="ck">◆</span>Chain: Intact</li>
+  </ul>
+  <div class="bdgs">
+    <div class="bdg" id="bd0" style="color:#E0ECFF;border-color:rgba(224,236,255,.3)">◆<br>CONF</div>
+    <div class="bdg" id="bd1" style="color:#F0F4FF;border-color:rgba(240,244,255,.25)">📋<br>COMP</div>
+    <div class="bdg" id="bd2" style="color:#FAFCFF;border-color:rgba(250,252,255,.2)">🌐<br>CRED</div>
+  </div>
+</div>
+<div id="hud">
+  <div id="hud-inner">
+    <div id="hud-left">
+      <div id="phase-num">PHASE 01 / 05</div>
+      <div id="htitle">UPSTREAM — MINING</div>
+      <div id="hdesc">Open-pit Kimberlite mine · Botswana · 9 spiral terraces · Rough crystalline diamond rises 340m</div>
+    </div>
+    <div id="hud-right">
+      <div id="hud-progress">SEQUENCE PROGRESS</div>
+      <div id="hud-timer"><div id="timerbar"><div id="timerfill"></div></div><div id="timerlabel">— / —</div></div>
+    </div>
+  </div>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// QR grid
+(function(){var p=[1,1,1,0,1,0,1,1,0,0,1,1,1,0,1,0,1,0,0,1,0,1,0,1,1,1,1,0,0,1,0,0,1,1,1,0,1,0,1,0,1,1,1,0,0,1,0,0,1];var g=document.getElementById('qrgrid');for(var i=0;i<49;i++){var d=document.createElement('div');d.className='qpx';d.style.background=p[i%p.length]?'#E0ECFF':'transparent';g.appendChild(d);}})();
+var _sb=0,_sd=1;setInterval(function(){_sb+=_sd*1.8;if(_sb>=76||_sb<=0)_sd*=-1;var e=document.getElementById('scanbeam');if(e)e.style.top=_sb+'px';},16);
+
+// THREE.JS SETUP
+var wrap=document.getElementById('wrap'),dc=document.getElementById('dc'),bloomCanvas=document.getElementById('bloomCanvas');
+var W=wrap.clientWidth,H=wrap.clientHeight;dc.width=W;dc.height=H;bloomCanvas.width=W;bloomCanvas.height=H;
+var bloomCtx=bloomCanvas.getContext('2d');
+var renderer=new THREE.WebGLRenderer({canvas:dc,antialias:true});renderer.setSize(W,H);renderer.setClearColor(0x030810,1);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+window.addEventListener('resize',function(){W=wrap.clientWidth;H=wrap.clientHeight;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();bloomCanvas.width=W;bloomCanvas.height=H;});
+var scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x030810,.016);
+var camera=new THREE.PerspectiveCamera(48,W/H,.1,200);camera.position.set(0,5,18);camera.lookAt(0,0,0);
+
+// LIGHTING — crystal white diamond
+scene.add(new THREE.AmbientLight(0x0a1020,2.8));
+var sun=new THREE.DirectionalLight(0xffffff,1.4);sun.position.set(10,18,8);scene.add(sun);
+var fill=new THREE.DirectionalLight(0x0a1520,.8);fill.position.set(-8,4,-6);scene.add(fill);
+var rimLight=new THREE.DirectionalLight(0xC8DAF0,.6);rimLight.position.set(0,-5,-10);scene.add(rimLight);
+var globalBlue=new THREE.PointLight(0xD0E0F0,.55,40);globalBlue.position.set(0,8,0);scene.add(globalBlue);
+
+// STARS
+(function(){var a=new Float32Array(1600*3);for(var i=0;i<1600;i++){a[i*3]=(Math.random()-.5)*200;a[i*3+1]=(Math.random()-.5)*100;a[i*3+2]=(Math.random()-.5)*110-20;}var g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(a,3));scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:.025,transparent:true,opacity:.18})));var b=new Float32Array(700*3);for(var j=0;j<700;j++){b[j*3]=(Math.random()-.5)*80;b[j*3+1]=(Math.random()-.5)*40;b[j*3+2]=(Math.random()-.5)*50;}var g2=new THREE.BufferGeometry();g2.setAttribute('position',new THREE.BufferAttribute(b,3));scene.add(new THREE.Points(g2,new THREE.PointsMaterial({color:0xD8E8F8,size:.038,transparent:true,opacity:.12})));})();
+
+var L=function(a,b,t){return a+(b-a)*t;};
+var C=function(v){return Math.max(0,Math.min(1,v));};
+var eio=function(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;};
+
+function dGeo(s){s=s||1;var v=[[0,s*1.4,0],[s*.9,s*.3,0],[s*.55,s*.3,s*.77],[-s*.55,s*.3,s*.77],[-s*.9,s*.3,0],[-s*.55,s*.3,-s*.77],[s*.55,s*.3,-s*.77],[0,-s*.9,0]];var f=[0,1,2,0,2,3,0,3,4,0,4,5,0,5,6,0,6,1,7,2,1,7,3,2,7,4,3,7,5,4,7,6,5,7,1,6];var pos=new Float32Array(f.length*3);for(var i=0;i<f.length;i++){pos[i*3]=v[f[i]][0];pos[i*3+1]=v[f[i]][1];pos[i*3+2]=v[f[i]][2];}var g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.computeVertexNormals();return g;}
+function mkD(col,sz){sz=sz||1;var geo=dGeo(sz);var m=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:0,shininess:360,specular:new THREE.Color(1,1,1),side:THREE.DoubleSide});var w=new THREE.MeshBasicMaterial({color:col,wireframe:true,transparent:true,opacity:0});var gm=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,side:THREE.DoubleSide});var g=new THREE.Group();g.add(new THREE.Mesh(geo,m));g.add(new THREE.Mesh(geo,w));g.add(new THREE.Mesh(dGeo(sz*1.32),gm));g.m=m;g.w=w;g.gm=gm;return g;}
+
+// ══════════════════════════════════════════════════
+// PHONE SCREEN — LIVE CANVAS TEXTURE (NOT BLACK)
+// ══════════════════════════════════════════════════
+var phoneScanCV=document.createElement('canvas');phoneScanCV.width=256;phoneScanCV.height=400;
+var phoneScanCtx=phoneScanCV.getContext('2d');
+var phoneScanTex=new THREE.CanvasTexture(phoneScanCV);
+
+function drawPhoneScreen(t,opacity){
+  if(opacity<0.04)return;
+  var ctx=phoneScanCtx;var W2=256,H2=400;
+  // Background gradient
+  ctx.fillStyle='#020c1e';ctx.fillRect(0,0,W2,H2);
+  // Subtle blue grid
+  ctx.strokeStyle='rgba(200,218,240,0.12)';ctx.lineWidth=1;
+  for(var x=0;x<W2;x+=28){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H2);ctx.stroke();}
+  for(var y=0;y<H2;y+=28){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W2,y);ctx.stroke();}
+  // Sweep beam
+  var beamY=((Math.sin(t*0.045)+1)/2)*(H2-60)+20;
+  var bGrd=ctx.createLinearGradient(0,beamY-22,0,beamY+22);
+  bGrd.addColorStop(0,'rgba(200,218,240,0)');bGrd.addColorStop(.5,'rgba(224,236,255,.85)');bGrd.addColorStop(1,'rgba(200,218,240,0)');
+  ctx.fillStyle=bGrd;ctx.fillRect(0,beamY-22,W2,44);
+  // Glowing centerline
+  ctx.strokeStyle='rgba(224,236,255,0.9)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,beamY);ctx.lineTo(W2,beamY);ctx.stroke();
+  // Diamond wireframe outline in center
+  ctx.strokeStyle='rgba(224,236,255,0.5)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(W2/2,40);ctx.lineTo(W2-30,H2/2-20);ctx.lineTo(W2/2,H2-70);ctx.lineTo(30,H2/2-20);ctx.closePath();ctx.stroke();
+  // Inner diamond lines (facets)
+  ctx.strokeStyle='rgba(200,218,240,0.3)';ctx.lineWidth=.8;
+  ctx.beginPath();ctx.moveTo(W2/2,40);ctx.lineTo(W2/2,H2-70);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(30,H2/2-20);ctx.lineTo(W2-30,H2/2-20);ctx.stroke();
+  // Scan corner brackets
+  ctx.strokeStyle='rgba(224,236,255,0.85)';ctx.lineWidth=2;
+  [[22,22,48,22],[22,22,22,48],[W2-22,22,W2-48,22],[W2-22,22,W2-22,48],[22,H2-22,48,H2-22],[22,H2-22,22,H2-48],[W2-22,H2-22,W2-48,H2-22],[W2-22,H2-22,W2-22,H2-48]].forEach(function(pts){ctx.beginPath();ctx.moveTo(pts[0],pts[1]);ctx.lineTo(pts[2],pts[3]);ctx.stroke();});
+  // Cloud connection dot pulse (top-right)
+  var pulse=(Math.sin(t*0.08)+1)/2;
+  ctx.fillStyle='rgba(224,236,255,'+(0.4+pulse*0.5)+')';
+  ctx.beginPath();ctx.arc(W2-20,20,5+pulse*2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(224,236,255,0.9)';ctx.beginPath();ctx.arc(W2-20,20,3,0,Math.PI*2);ctx.fill();
+  // Connection line to cloud
+  ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(200,218,240,'+(0.3+pulse*0.3)+')';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W2-20,28);ctx.lineTo(W2-20,55);ctx.stroke();ctx.setLineDash([]);
+  // Data readouts at bottom
+  ctx.fillStyle='rgba(224,236,255,0.7)';ctx.font='bold 11px monospace';
+  ctx.fillText('◈ SCAN: ACTIVE',12,H2-70);
+  ctx.fillStyle='rgba(200,218,240,0.55)';ctx.font='10px monospace';
+  ctx.fillText('UDID: TS100100',12,H2-52);
+  ctx.fillText('KP: VERIFIED ✓',12,H2-34);
+  ctx.fillStyle='rgba(200,218,240,0.4)';ctx.font='9px monospace';
+  var dots='●'.repeat(Math.floor(t*0.05%3)+1);
+  ctx.fillText('UPLOADING'+dots,12,H2-16);
+  // Status bar at top
+  ctx.fillStyle='rgba(6,14,32,0.9)';ctx.fillRect(0,0,W2,18);
+  ctx.fillStyle='rgba(224,236,255,0.6)';ctx.font='9px monospace';
+  ctx.fillText('◈ CLOUD CONNECTED',10,13);
+  phoneScanTex.needsUpdate=true;
+}
+
+// Label sprite
+var SPTS=[];
+function mkSp(lines,col,cw,ch,x,y,z){
+  col=col||'#C8DAF0';cw=cw||280;
+  var arr=Array.isArray(lines)?lines:[lines];
+  var h=ch?ch:(arr.length>1?(32+arr.length*34):66);
+  var cv=document.createElement('canvas');cv.width=cw;cv.height=h;var ctx=cv.getContext('2d');
+  ctx.fillStyle='rgba(3,8,16,.97)';ctx.strokeStyle=col+'55';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(2,2,cw-4,h-4,7);ctx.fill();ctx.stroke();
+  ctx.strokeStyle=col+'22';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(5,5,cw-10,h-10,4);ctx.stroke();
+  [[8,8],[cw-8,8],[8,h-8],[cw-8,h-8]].forEach(function(pt){ctx.fillStyle=col+'66';ctx.beginPath();ctx.arc(pt[0],pt[1],1.6,0,Math.PI*2);ctx.fill();});
+  if(arr.length>1){var sy=Math.round(h/(arr.length+1))+4;ctx.strokeStyle=col+'30';ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(14,sy);ctx.lineTo(cw-14,sy);ctx.stroke();}
+  for(var i=0;i<arr.length;i++){
+    var ln=arr[i],fs=arr.length>1?(i===0?16:12):20;
+    if(i===0){ctx.fillStyle=col;ctx.font='700 '+fs+'px "Cormorant Garamond", serif';}
+    else if(ln.indexOf('⊕')>=0){ctx.fillStyle='#E0ECFF';ctx.font='500 11px "JetBrains Mono", monospace';}
+    else if(ln.indexOf('⏱')>=0){ctx.fillStyle='#F0F4FF';ctx.font='400 11px "JetBrains Mono", monospace';}
+    else if(ln.indexOf('👤')>=0){ctx.fillStyle='#FAFCFF';ctx.font='500 11px "JetBrains Mono", monospace';}
+    else if(ln.indexOf('📋')>=0){ctx.fillStyle='#E0ECFF';ctx.font='400 11px "JetBrains Mono", monospace';}
+    else{ctx.fillStyle='rgba(224,236,255,.78)';ctx.font='500 11px "JetBrains Mono", monospace';}
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(ln,cw/2,arr.length===1?h/2:h*(i+1)/(arr.length+1));
+  }
+  var tex=new THREE.CanvasTexture(cv);
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,opacity:0,depthTest:false}));
+  sp.scale.set(cw/66,h/66,1);sp.position.set(x||0,y||0,z||0);sp.tgt=0;scene.add(sp);SPTS.push(sp);return sp;
+}
+
+function mkRockyTex(){var cv=document.createElement('canvas');cv.width=512;cv.height=512;var ctx=cv.getContext('2d');ctx.fillStyle='#04060e';ctx.fillRect(0,0,512,512);for(var i=0;i<500;i++){var x=Math.random()*512,y=Math.random()*512,r=2+Math.random()*22;var grd=ctx.createRadialGradient(x,y,0,x,y,r);grd.addColorStop(0,Math.random()>.5?'rgba(30,50,90,.5)':'rgba(15,25,55,.45)');grd.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grd;ctx.beginPath();ctx.ellipse(x,y,r,r*(.35+Math.random()*.65),Math.random()*Math.PI,0,Math.PI*2);ctx.fill();}for(var j=0;j<16;j++){ctx.strokeStyle='rgba(20,60,160,'+(0.05+Math.random()*.08)+')';ctx.lineWidth=1+Math.random()*2;ctx.beginPath();var cx=Math.random()*512,cy=Math.random()*512;ctx.moveTo(cx,cy);for(var k=0;k<6;k++){cx+=(Math.random()-.5)*100;cy+=(Math.random()-.5)*100;ctx.lineTo(cx,cy);}ctx.stroke();}return new THREE.CanvasTexture(cv);}
+
+// ══════════════════════════════════════════════════
+// MIDSTREAM: 4-STAGE DIAMOND TRANSFORMATION
+// ══════════════════════════════════════════════════
+
+// Stage 0: RAW KIMBERLITE FRAGMENTS — broken rock cluster
+function mkRoughCluster(sz){
+  sz=sz||1;
+  var g=new THREE.Group();
+  var m=new THREE.MeshPhongMaterial({color:0xB2C0CC,transparent:true,opacity:0,shininess:18,specular:new THREE.Color(.35,.42,.5),side:THREE.DoubleSide});
+  var w=new THREE.MeshBasicMaterial({color:0x7A99AA,wireframe:true,transparent:true,opacity:0});
+  var gm=new THREE.MeshBasicMaterial({color:0xC5D5DC,transparent:true,opacity:0,side:THREE.BackSide});
+  // Central rough rock
+  g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(sz*.52,0),m));
+  g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(sz*.52,0),w));
+  g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(sz*.65,0),gm));
+  // 7 scattered fragment pieces — like broken kimberlite
+  var fragAngles=[0,.9,1.8,2.7,3.6,4.5,5.4];
+  fragAngles.forEach(function(fa,fi){
+    var fr=sz*(.55+Math.random()*.25),fy=(Math.random()-.5)*sz*.55;
+    var fgeo=new THREE.TetrahedronGeometry(sz*(.15+Math.random()*.13),0);
+    var fm=new THREE.Mesh(fgeo,m);
+    fm.position.set(Math.cos(fa)*fr,fy,Math.sin(fa)*fr);
+    fm.rotation.set(Math.random()*6.28,Math.random()*6.28,Math.random()*6.28);
+    g.add(fm);
+    var fw=new THREE.Mesh(fgeo,w);fw.position.copy(fm.position);fw.rotation.copy(fm.rotation);g.add(fw);
+  });
+  // 3 extra tiny chip fragments floating above
+  for(var ci=0;ci<3;ci++){var ca=ci*2.09+.5;var cg=new THREE.TetrahedronGeometry(sz*.08,0);var cm=new THREE.Mesh(cg,m);cm.position.set(Math.cos(ca)*sz*.4,sz*(.4+ci*.12),Math.sin(ca)*sz*.4);cm.rotation.set(Math.random()*6,Math.random()*6,Math.random()*6);g.add(cm);}
+  g.m=m;g.w=w;g.gm=gm;return g;
+}
+
+// Stage 1: BEING CUT — half-rough, facets forming
+function mkCuttingDiamond(sz,col){
+  sz=sz||1;col=col||0xC0D4E8;
+  var g=new THREE.Group();
+  // Lower half diamond geometry (pointed base visible)
+  var m=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:0,shininess:90,specular:new THREE.Color(.5,.65,.9),side:THREE.DoubleSide});
+  var w=new THREE.MeshBasicMaterial({color:col,wireframe:true,transparent:true,opacity:0});
+  var gm=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,side:THREE.DoubleSide});
+  var geo=dGeo(sz*.9);
+  g.add(new THREE.Mesh(geo,m));g.add(new THREE.Mesh(geo,w));g.add(new THREE.Mesh(dGeo(sz*1.2),gm));
+  // Rough top cap (uncut part) — irregular icosahedron overlay
+  var roughTop=new THREE.Mesh(new THREE.IcosahedronGeometry(sz*.45,0),new THREE.MeshPhongMaterial({color:0xBBC8D4,transparent:true,opacity:0,shininess:25,side:THREE.DoubleSide}));
+  roughTop.position.y=sz*.4;g.add(roughTop);g._roughTop=roughTop.material;
+  // Cutting plane — glowing horizontal slice
+  var cpM=new THREE.MeshBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0,side:THREE.DoubleSide});
+  var cp=new THREE.Mesh(new THREE.RingGeometry(0,sz*.85,32),cpM);cp.rotation.x=Math.PI/2;cp.position.y=.05;g.add(cp);g._cpM=cpM;
+  // Fragment chips flying off
+  for(var cfi=0;cfi<5;cfi++){var cfA=cfi*1.256+.4;var cfM=new THREE.MeshBasicMaterial({color:0x7EB8D8,transparent:true,opacity:0});var cfX=new THREE.Mesh(new THREE.TetrahedronGeometry(sz*.07,0),cfM);cfX.position.set(Math.cos(cfA)*sz*(.8+Math.random()*.4),sz*(.5+Math.random()*.5),Math.sin(cfA)*sz*.4);cfX.rotation.set(Math.random()*6,Math.random()*6,Math.random()*6);g.add(cfX);if(!g._chips)g._chips=[];g._chips.push(cfM);}
+  g.m=m;g.w=w;g.gm=gm;return g;
+}
+
+// Stage 2: POLISHING — smooth facets forming, translucent blue shimmer
+function mkPolishingDiamond(sz,col){
+  sz=sz||1;col=col||0xD8E8F5;
+  var g=new THREE.Group();
+  var m=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:0,shininess:200,specular:new THREE.Color(.75,.88,1),side:THREE.DoubleSide});
+  var w=new THREE.MeshBasicMaterial({color:col,wireframe:true,transparent:true,opacity:0});
+  var gm=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,side:THREE.DoubleSide});
+  var geo=dGeo(sz*.9);g.add(new THREE.Mesh(geo,m));g.add(new THREE.Mesh(geo,w));g.add(new THREE.Mesh(dGeo(sz*1.25),gm));
+  // Inner light core (polished = lets light through)
+  var coreM=new THREE.MeshBasicMaterial({color:0xFAFCFF,transparent:true,opacity:0});
+  var core=new THREE.Mesh(new THREE.SphereGeometry(sz*.28,10,10),coreM);g.add(core);g._coreM=coreM;
+  // Two gleam rings
+  var r1M=new THREE.MeshBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0});
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(sz*.75,.015,8,40),r1M));g._r1M=r1M;
+  g.m=m;g.w=w;g.gm=gm;return g;
+}
+
+// Stage 3: GIA BRILLIANT — fully polished sparkling diamond
+function mkBrilliantDiamond(sz,col){
+  sz=sz||1;col=col||0xF0F6FF;
+  var g=new THREE.Group();
+  // Premium material — near-clear, ultra-shiny
+  var m=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:0,shininess:450,specular:new THREE.Color(1,1,1),side:THREE.DoubleSide,emissive:new THREE.Color(0x081020),emissiveIntensity:.25});
+  var w=new THREE.MeshBasicMaterial({color:0xFAFCFF,wireframe:true,transparent:true,opacity:0});
+  var gm=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,side:THREE.BackSide});
+  var geo=dGeo(sz*.9);g.add(new THREE.Mesh(geo,m));g.add(new THREE.Mesh(geo,w));g.add(new THREE.Mesh(dGeo(sz*1.3),gm));
+  // Bright inner core — brilliant fire
+  var coreM=new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:0});
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(sz*.18,8,8),coreM));g._coreM=coreM;
+  // Outer aura glow
+  var auraM=new THREE.MeshBasicMaterial({color:0xF0F4FF,transparent:true,opacity:0,side:THREE.BackSide});
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(sz*1.1,14,14),auraM));g._auraM=auraM;
+  // Three gleam rings at different tilts
+  var ring1M=new THREE.MeshBasicMaterial({color:0xFAFCFF,transparent:true,opacity:0});
+  var rg1=new THREE.Mesh(new THREE.TorusGeometry(sz*.85,.016,8,48),ring1M);rg1.rotation.x=Math.PI/2;g.add(rg1);g._ring1M=ring1M;
+  var ring2M=new THREE.MeshBasicMaterial({color:0xF0F4FF,transparent:true,opacity:0});
+  var rg2=new THREE.Mesh(new THREE.TorusGeometry(sz*.7,.012,8,40),ring2M);rg2.rotation.x=Math.PI/3;rg2.rotation.z=Math.PI/4;g.add(rg2);g._ring2M=ring2M;
+  // Sparkle cross-hair (lens flare style)
+  var spM=new THREE.LineBasicMaterial({color:0xFFFFFF,transparent:true,opacity:0});
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-sz,.4,0),new THREE.Vector3(sz,.4,0)]),spM));
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,sz*.6+.4,0),new THREE.Vector3(0,-sz*.3+.4,0)]),spM));
+  g._spM=spM;
+  g.m=m;g.w=w;g.gm=gm;return g;
+}
+
+// ══ HERO TRANSITION DIAMOND ══
+var heroGroup=new THREE.Group();scene.add(heroGroup);heroGroup.visible=false;
+var heroDiamond=mkD(0xC8DAF0,2.2);heroGroup.add(heroDiamond);
+var heroCore=new THREE.Mesh(new THREE.SphereGeometry(.7,14,14),new THREE.MeshBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0}));heroGroup.add(heroCore);
+var heroGlow=new THREE.Mesh(new THREE.SphereGeometry(3.2,20,20),new THREE.MeshBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0,side:THREE.BackSide}));heroGroup.add(heroGlow);
+var heroRings=[];for(var hri=0;hri<4;hri++){var hrM=new THREE.MeshBasicMaterial({color:hri%2===0?0xC8DAF0:0xE0ECFF,transparent:true,opacity:0});var hrX=new THREE.Mesh(new THREE.TorusGeometry(2.0+hri*.55,.018,8,64),hrM);hrX.rotation.x=Math.PI/2+hri*.3;hrX.rotation.z=hri*.4;heroGroup.add(hrX);heroRings.push(hrM);}
+var heroParticles=[];for(var hpi=0;hpi<80;hpi++){var hpM=new THREE.MeshBasicMaterial({color:hpi%3===0?0xC8DAF0:(hpi%3===1?0xFAFCFF:0xE0ECFF),transparent:true,opacity:0});var hpX=new THREE.Mesh(new THREE.SphereGeometry(.04+Math.random()*.06,4,4),hpM);var ang=Math.random()*Math.PI*2,elev=(Math.random()-.5)*Math.PI*.8,rad=2+Math.random()*4;hpX._basePos=new THREE.Vector3(Math.cos(ang)*Math.cos(elev)*rad,Math.sin(elev)*rad,Math.sin(ang)*Math.cos(elev)*rad);hpX._speed=.01+Math.random()*.02;hpX._phase=Math.random()*Math.PI*2;heroGroup.add(hpX);heroParticles.push({m:hpM,x:hpX});}
+var heroPL=new THREE.PointLight(0xC8DAF0,0,20);heroGroup.add(heroPL);var heroPL2=new THREE.PointLight(0xFAFCFF,0,12);heroGroup.add(heroPL2);
+
+// ══ PHASE 0 — MINING ══
+var P0={mats:[],trucks:[]};
+var gndM=new THREE.MeshPhongMaterial({map:mkRockyTex(),transparent:true,opacity:0,side:THREE.DoubleSide});var gndX=new THREE.Mesh(new THREE.CircleGeometry(16,52),gndM);gndX.rotation.x=-Math.PI/2;gndX.position.y=-2.4;scene.add(gndX);P0.mats.push(gndM);
+var watM=new THREE.MeshPhongMaterial({color:0x060e28,shininess:180,transparent:true,opacity:0,side:THREE.DoubleSide});var watX=new THREE.Mesh(new THREE.RingGeometry(14,22,52),watM);watX.rotation.x=-Math.PI/2;watX.position.y=-2.42;scene.add(watX);P0.mats.push(watM);
+for(var ti=0;ti<9;ti++){var tf=ti/9,tR=6.5-tf*4.2,tD=-2.4-ti*.48;var tc=new THREE.Color().setHSL(.6-.04*tf,.25+tf*.12,.10+tf*.09);var twM=new THREE.MeshPhongMaterial({color:tc,transparent:true,opacity:0,side:THREE.DoubleSide});var twall=new THREE.Mesh(new THREE.CylinderGeometry(tR,tR+.22,.46,48,1,true),twM);twall.position.y=tD;scene.add(twall);P0.mats.push(twM);var tfM=new THREE.MeshPhongMaterial({color:tc,transparent:true,opacity:0,side:THREE.DoubleSide});var tfl=new THREE.Mesh(new THREE.RingGeometry(tR-.52,tR,48),tfM);tfl.rotation.x=-Math.PI/2;tfl.position.y=tD-.23;scene.add(tfl);P0.mats.push(tfM);}
+var cnM=new THREE.MeshPhongMaterial({color:0x030810,transparent:true,opacity:0,side:THREE.DoubleSide});var cnX=new THREE.Mesh(new THREE.CylinderGeometry(2.4,6.5,5.2,48,1,true),cnM);cnX.position.y=-5;scene.add(cnX);P0.mats.push(cnM);
+for(var tri=0;tri<9;tri++){var trLvl=Math.floor(Math.random()*5),trR=6.5-trLvl*.5-.8,trA=Math.random()*Math.PI*2;var trM=new THREE.MeshPhongMaterial({color:0x1e3050,shininess:40,transparent:true,opacity:0});var trk=new THREE.Mesh(new THREE.BoxGeometry(.3,.14,.16),trM);trk.position.set(Math.cos(trA)*trR,-2.4-trLvl*.5+.09,Math.sin(trA)*trR);trk._R=trR;trk._ang=trA;trk._spd=(.003+Math.random()*.0025)*(Math.random()>.5?1:-1);trk._lvl=trLvl;scene.add(trk);P0.trucks.push({m:trk,mat:trM});P0.mats.push(trM);}
+var pgM=new THREE.MeshBasicMaterial({color:0x8AA4C0,transparent:true,opacity:0});var pgX=new THREE.Mesh(new THREE.TorusGeometry(1.9,.09,8,44),pgM);pgX.rotation.x=Math.PI/2;pgX.position.y=-7;scene.add(pgX);
+var bmM=new THREE.MeshBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});var bmX=new THREE.Mesh(new THREE.CylinderGeometry(.04,.18,5.5,8),bmM);bmX.position.y=-4.8;scene.add(bmX);
+// Rough diamond - crystalline cluster rising from mine
+var mineD=mkRoughCluster(1.3);mineD.position.y=-9;scene.add(mineD);
+var mineCore=new THREE.Mesh(new THREE.SphereGeometry(.3,8,8),new THREE.MeshBasicMaterial({color:0xddeeff,transparent:true,opacity:0}));mineD.add(mineCore);
+var minePL=new THREE.PointLight(0x88aabb,0,14);scene.add(minePL);var minePL2=new THREE.PointLight(0xffffff,0,8);scene.add(minePL2);
+var shards=[];for(var shi=0;shi<32;shi++){var shCol=[0x6a7c88,0x7a8c98,0x5a6c78,0x8a9ca8,0x9aaab8,0x4a5c68][shi%6];var shM=new THREE.MeshPhongMaterial({color:shCol,shininess:60,transparent:true,opacity:0,specular:new THREE.Color(.7,.8,.9)});var sh=new THREE.Mesh(new THREE.TetrahedronGeometry(.14+Math.random()*.24,0),shM);var sa=Math.random()*Math.PI*2,sr=.9+Math.random()*2.8;sh.position.set(Math.cos(sa)*sr,-2.2+Math.random()*1.5,Math.sin(sa)*sr);sh._vy=.04+Math.random()*.07;sh._gy=-.004;sh._rx=(Math.random()-.5)*.06;sh._rz=(Math.random()-.5)*.05;scene.add(sh);shards.push({m:sh,mat:shM});}
+var m0L0=mkSp(['⛏  DAMTSHAA DIAMOND MINE','Orapa District · Botswana · Open-pit Kimberlite · Est. 2003'],'#C8DAF0',420,60,0,4.2,0);
+var m0L1=mkSp(['ROUGH KIMBERLITE CRYSTAL','Raw ~2.1 Carat · Damtshaa Orebody · Entering KP Chain'],'#E0ECFF',340,56,3.2,2.2,0);
+var m0L2=mkSp(['UPSTREAM MINING STAGE','Spiral terraces · Haul trucks orbit · 340m deep extraction'],'#8AA4C0',340,56,0,-1.3,0);
+
+// ══ PHASE 1 — SCANNING ══
+var platM=new THREE.MeshPhongMaterial({color:0x060e22,shininess:140,transparent:true,opacity:0,specular:new THREE.Color(.2,.3,.5)});var platX=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.7,.14,40),platM);platX.position.y=-.08;scene.add(platX);
+var prM=new THREE.MeshBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});var prX=new THREE.Mesh(new THREE.TorusGeometry(1.52,.04,8,52),prM);prX.rotation.x=Math.PI/2;prX.position.y=0;scene.add(prX);
+var scanD=mkD(0xFAFCFF,1.15);scene.add(scanD);
+var A1=new THREE.Group();scene.add(A1);var a1M=new THREE.MeshPhongMaterial({color:0x0c1830,shininess:100,transparent:true,opacity:0,specular:new THREE.Color(.2,.3,.5)});var a1v=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,2.8,8),a1M);a1v.position.set(2.9,0,0);A1.add(a1v);var a1h=new THREE.Mesh(new THREE.BoxGeometry(2.9,.065,.065),a1M);a1h.position.set(1.45,.9,0);A1.add(a1h);var h1M=new THREE.MeshPhongMaterial({color:0x081020,shininess:140,transparent:true,opacity:0});var h1X=new THREE.Mesh(new THREE.BoxGeometry(.3,.22,.2),h1M);h1X.position.set(0,.9,0);A1.add(h1X);var l1M=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});A1.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,.9,0),new THREE.Vector3(0,0,0)]),l1M));var aL1=new THREE.PointLight(0xC8DAF0,0,5);aL1.position.set(0,.9,0);A1.add(aL1);
+var A2=new THREE.Group();A2.rotation.y=2.1;scene.add(A2);var a2M=new THREE.MeshPhongMaterial({color:0x0c1830,shininess:100,transparent:true,opacity:0,specular:new THREE.Color(.2,.3,.5)});var a2v=new THREE.Mesh(new THREE.CylinderGeometry(.048,.048,2.55,8),a2M);a2v.position.set(2.7,-.15,0);A2.add(a2v);var a2h=new THREE.Mesh(new THREE.BoxGeometry(2.7,.06,.06),a2M);a2h.position.set(1.35,.6,0);A2.add(a2h);var h2M=new THREE.MeshPhongMaterial({color:0x081020,shininess:140,transparent:true,opacity:0});var h2X=new THREE.Mesh(new THREE.BoxGeometry(.26,.2,.17),h2M);h2X.position.set(0,.6,0);A2.add(h2X);var l2M=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});A2.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,.6,0),new THREE.Vector3(0,0,0)]),l2M));var aL2=new THREE.PointLight(0xC8DAF0,0,4);aL2.position.set(0,.6,0);A2.add(aL2);
+var SR=[];for(var sri=0;sri<8;sri++){var srM=new THREE.MeshBasicMaterial({color:sri%2===0?0xC8DAF0:0xE0ECFF,transparent:true,opacity:0});var srX=new THREE.Mesh(new THREE.TorusGeometry(1.32+sri*.17,.012,8,58),srM);srX.rotation.x=Math.PI/2;scene.add(srX);SR.push({m:srM,r:srX});}
+var DP=[];var tg=dGeo(.05);for(var dpi=0;dpi<160;dpi++){var dpCol=dpi%3===0?0xC8DAF0:(dpi%3===1?0xF0F4FF:0xFAFCFF);var dpm=new THREE.MeshPhongMaterial({color:dpCol,transparent:true,opacity:0,shininess:280,specular:new THREE.Color(.8,.9,1),side:THREE.DoubleSide});var dpw=new THREE.MeshBasicMaterial({color:dpCol,wireframe:true,transparent:true,opacity:0});var dpg=new THREE.Group();dpg.add(new THREE.Mesh(tg,dpm));dpg.add(new THREE.Mesh(tg,dpw));dpg.dpm=dpm;dpg.dpw=dpw;dpg.dpR=1.58+Math.random()*.88;dpg.dpAx=new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize();dpg.dpAng=Math.random()*Math.PI*2;dpg.dpSpd=.007+Math.random()*.013;dpg.dpSx=(Math.random()-.5)*.08;dpg.dpSy=(Math.random()-.5)*.1;dpg.dpSz=(Math.random()-.5)*.07;dpg.dpPh=Math.random()*Math.PI*2;scene.add(dpg);DP.push(dpg);}
+
+// ── PHONE with LIVE CANVAS SCREEN ──
+var phoneG=new THREE.Group();phoneG.position.set(-4.5,0.9,1.2);phoneG.rotation.y=0.52;scene.add(phoneG);
+var phoneBM=new THREE.MeshPhongMaterial({color:0x060d1c,shininess:180,transparent:true,opacity:0,specular:new THREE.Color(.25,.35,.55)});phoneG.add(new THREE.Mesh(new THREE.BoxGeometry(.72,1.35,.072),phoneBM));
+// Bezel glow edge
+var pBezelM=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});
+var pBezel=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.74,1.37,.074)),pBezelM);phoneG.add(pBezel);
+// LIVE SCREEN — uses canvas texture
+var phoneScrnM=new THREE.MeshBasicMaterial({map:phoneScanTex,transparent:true,opacity:0,side:THREE.FrontSide});
+var phoneScrn=new THREE.Mesh(new THREE.PlaneGeometry(.64,1.2),phoneScrnM);phoneScrn.position.z=.038;phoneG.add(phoneScrn);
+// Camera dot
+var phoneCamM=new THREE.MeshBasicMaterial({color:0x8AA4C0,transparent:true,opacity:0});
+var phoneCamDot=new THREE.Mesh(new THREE.CircleGeometry(.025,10),phoneCamM);phoneCamDot.position.set(0,.62,.038);phoneG.add(phoneCamDot);
+// Connection wire to cloud — blue dashed line from phone to dev
+var phoneConnM=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});
+scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-4.5,1.5,1.2),new THREE.Vector3(4.8,3.4,0)]),phoneConnM));
+var phoneLight=new THREE.PointLight(0xC8DAF0,0,5);phoneLight.position.set(-4.5,1.2,1.8);scene.add(phoneLight);
+
+// Cloud device
+var devG=new THREE.Group();devG.position.set(4.8,.2,0);scene.add(devG);var devBodyM=new THREE.MeshPhongMaterial({color:0x060e20,shininess:120,transparent:true,opacity:0,specular:new THREE.Color(.2,.3,.5)});devG.add(new THREE.Mesh(new THREE.BoxGeometry(1.2,1.6,.6),devBodyM));var devWireM=new THREE.MeshBasicMaterial({color:0xC8DAF0,wireframe:true,transparent:true,opacity:0});devG.add(new THREE.Mesh(new THREE.BoxGeometry(1.2,1.6,.6),devWireM));var devScreenM=new THREE.MeshBasicMaterial({color:0x030c1e,transparent:true,opacity:0,side:THREE.DoubleSide});var devScreen=new THREE.Mesh(new THREE.PlaneGeometry(.9,1.1),devScreenM);devScreen.position.set(0,0,.31);devG.add(devScreen);
+var devDishM=new THREE.MeshPhongMaterial({color:0xC8DAF0,transparent:true,opacity:0,shininess:180,specular:new THREE.Color(.5,.65,.9)});var devDish=new THREE.Mesh(new THREE.TorusGeometry(.38,.04,8,28,Math.PI),devDishM);devDish.position.set(0,.95,0);devDish.rotation.x=-Math.PI/2;devG.add(devDish);var devDishCM=new THREE.MeshPhongMaterial({color:0xE0ECFF,transparent:true,opacity:0,shininess:280});var devDishC=new THREE.Mesh(new THREE.SphereGeometry(.08,10,10),devDishCM);devDishC.position.set(0,.95,0);devG.add(devDishC);
+var led1M=new THREE.MeshBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});var _led1=new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.04),led1M);_led1.position.set(-.38,.3,.31);devG.add(_led1);
+var led2M=new THREE.MeshBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0});var _led2=new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.04),led2M);_led2.position.set(-.38,.1,.31);devG.add(_led2);
+var led3M=new THREE.MeshBasicMaterial({color:0xF0F4FF,transparent:true,opacity:0});var _led3=new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.04),led3M);_led3.position.set(-.38,-.1,.31);devG.add(_led3);
+var uplinkM=new THREE.MeshBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});var _uplink=new THREE.Mesh(new THREE.CylinderGeometry(.022,.07,2.4,8),uplinkM);_uplink.position.set(0,2.0,0);devG.add(_uplink);var devPL=new THREE.PointLight(0xC8DAF0,0,8);devPL.position.set(0,1,0);devG.add(devPL);
+var cloudSM=new THREE.MeshPhongMaterial({color:0xC8DAF0,transparent:true,opacity:0,shininess:180});var cloudS=new THREE.Mesh(new THREE.SphereGeometry(.3,14,14),cloudSM);cloudS.position.set(4.8,3.4,0);scene.add(cloudS);var cloudRM=new THREE.MeshBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0});var cloudR=new THREE.Mesh(new THREE.TorusGeometry(.5,.032,8,36),cloudRM);cloudR.rotation.x=Math.PI/2;cloudR.position.set(4.8,3.4,0);scene.add(cloudR);
+var sBeams=[];[[-3.6,.4,0],[-2,.5,-1.4],[-.5,2.1,0],[-.5,-1.2,0],[-2.2,-1,-1.1],[.9,1.5,-1]].forEach(function(p){var m=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p[0],p[1],p[2]),new THREE.Vector3(4.8,.2,0)]),m));sBeams.push(m);});
+
+// Scan labels
+var s1L0=mkSp(['🔬  NON-CONTACT 3D SCANNING','Laser arms rotate 360° · Zero contact with diamond'],'#C8DAF0',388,58,0,4.2,0);
+var s1L1=mkSp(['◆  DIAMOND PARTICLES = SCAN DATA','Each tiny diamond maps one facet of the rough stone'],'#E0ECFF',358,56,0,2.8,0);
+var s1L2=mkSp(['◈  UDID: TS100100  GENERATED ✓','Unique Diamond ID committed to blockchain ledger'],'#C8DAF0',340,54,0,-2.5,0);
+var s1L3=mkSp(['✓  KP CERT: XYZ12345  ATTACHED'],'#8AA4C0',270,46,3.4,-.5,0);
+var s1L4=mkSp(['☁  CLOUD SERVER','All scan data uploads in real-time to cloud ledger'],'#C8DAF0',300,54,4.8,2.3,0);
+var s1L5=mkSp(['📱  MOBILE SCAN  ◉ LIVE','Real-time scan data streaming to cloud · UDID assigned'],'#E0ECFF',280,56,-4.5,3.0,0);
+var s1L6=mkSp(['▲  PHONE → CLOUD  →  LEDGER','Scan verified on-device before upload'],'#8AA4C0',270,50,-4.5,-2.0,0);
+
+// ══ PHASE 2 — MIDSTREAM: TRANSFORMATION JOURNEY ══
+// Wider spacing so labels never overlap
+var MPS=[[-6.5,0,0],[-2.2,0,0],[2.2,0,0],[6.5,0,0]];
+var MCS=[0xA0B4C4,0xC0D4E8,0xD8E8F5,0xF0F6FF];
+
+// 4 DISTINCT VISUAL STAGES — not all the same diamond!
+var midDs=[];
+midDs.push(mkRoughCluster(1.0));       // 0: raw kimberlite rock cluster
+midDs.push(mkCuttingDiamond(1.0,0xC0D4E8));  // 1: being cut, rough top + diamond base
+midDs.push(mkPolishingDiamond(.95,0xD8E8F5)); // 2: polished facets, inner light
+midDs.push(mkBrilliantDiamond(.95,0xF0F6FF)); // 3: full brilliant cut GIA
+for(var mi=0;mi<4;mi++){midDs[mi].position.set(MPS[mi][0],MPS[mi][1],MPS[mi][2]);scene.add(midDs[mi]);}
+
+var midLts=[],midRgs=[];
+for(var mi=0;mi<4;mi++){
+  var ml=new THREE.PointLight(MCS[mi],0,7);ml.position.set(MPS[mi][0],MPS[mi][1],MPS[mi][2]);scene.add(ml);midLts.push(ml);
+  var mrM=new THREE.MeshBasicMaterial({color:MCS[mi],transparent:true,opacity:0});
+  var mrX=new THREE.Mesh(new THREE.TorusGeometry(.88,.020,8,40),mrM);mrX.rotation.x=Math.PI/2;mrX.position.set(MPS[mi][0],-.7,MPS[mi][2]);scene.add(mrX);midRgs.push({m:mrM,r:mrX});
+}
+
+// Stage labels — alternating above/below, well separated
+var MNS=[
+  ['⛏  ROUGH KIMBERLITE','Broken rock from Botswana mine — 2.1ct raw crystal'],
+  ['✂  CUTTING & CLEAVING','Laser-guided facet formation · 57 planes being carved'],
+  ['◎  POLISHING STAGE','Micro-abrasive buffing · Facets aligned to perfection'],
+  ['◆  GIA CERTIFIED BRILLIANT','D-grade VVS1 · 0.75ct · Full traceability sealed']
+];
+var MTAGS=[
+  ['⊕ 21.1702°N, 72.8311°E','⏱ 2026-03-14  09:42 UTC','👤 Mehul Shah  ID#4421','📋 KP linked · Rough weight logged'],
+  ['⊕ 21.1702°N, 72.8311°E','⏱ 2026-03-14  11:18 UTC','👤 Rajesh Patel  ID#3309','📋 Facets forming · Batch TS100100'],
+  ['⊕ 21.1702°N, 72.8311°E','⏱ 2026-03-15  08:55 UTC','👤 Amit Desai  ID#2217','📋 57 facets applied · Grade pending'],
+  ['⊕ 51.2194°N,  4.4025°E','⏱ 2026-03-18  14:30 UTC','👤 GIA  Lab#AE105406','📋 0.75ct · D · VVS1 · Chain intact']
+];
+var midNLs=[],midILs=[];
+// Stagger: 0,2 → label above, info below. 1,3 → label below, info above
+for(var mi=0;mi<4;mi++){
+  var mc='#'+MCS[mi].toString(16).padStart(6,'0');
+  var lY=mi%2===0?2.7:-2.7,iY=mi%2===0?-3.4:3.4;
+  midNLs.push(mkSp(MNS[mi],mc,260,60,MPS[mi][0],MPS[mi][1]+lY,MPS[mi][2]));
+  midILs.push(mkSp(MTAGS[mi],mc,300,110,MPS[mi][0],MPS[mi][1]+iY,MPS[mi][2]));
+}
+
+// TRANSFORMATION ARROWS between nodes (instead of overlapping arcs)
+var transArrows=[];
+for(var tai=0;tai<3;tai++){
+  var taM=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});
+  // Straight line only — from right edge of node to left edge of next
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(MPS[tai][0]+1.1,0,0),new THREE.Vector3(MPS[tai+1][0]-1.1,0,0)]),taM));
+  transArrows.push(taM);
+  // Arrow head dot
+  var aDM=new THREE.MeshBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0});
+  var aDX=new THREE.Mesh(new THREE.SphereGeometry(.1,6,6),aDM);aDX.position.set((MPS[tai][0]+MPS[tai+1][0])/2,0,0);scene.add(aDX);transArrows.push(aDM);
+}
+// Travel particles along the straight line
+var midPts=[];
+for(var msi=0;msi<3;msi++)for(var mki=0;mki<3;mki++){
+  var mpM=new THREE.MeshBasicMaterial({color:[0xC8DAF0,0xE0ECFF,0xF0F4FF][msi],transparent:true,opacity:0});
+  var mpX=new THREE.Mesh(new THREE.SphereGeometry(.07,7,7),mpM);scene.add(mpX);
+  midPts.push({x:mpX,m:mpM,s:msi,frac:mki*.33,spd:.006});
+}
+// Polishing table at node 2
+var polTabM=new THREE.MeshPhongMaterial({color:0x060e20,shininess:180,transparent:true,opacity:0,specular:new THREE.Color(.2,.3,.5)});var polTab=new THREE.Mesh(new THREE.CylinderGeometry(1.0,.9,.08,36),polTabM);polTab.position.set(MPS[2][0],-.7,MPS[2][2]);scene.add(polTab);
+var polRimM=new THREE.MeshBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});var polRim=new THREE.Mesh(new THREE.TorusGeometry(1.0,.044,8,36),polRimM);polRim.rotation.x=Math.PI/2;polRim.position.set(MPS[2][0],-.62,MPS[2][2]);scene.add(polRim);
+var polDiscM=new THREE.MeshPhongMaterial({color:0x08142a,shininess:280,transparent:true,opacity:0,specular:new THREE.Color(.3,.5,.8)});var polDisc=new THREE.Mesh(new THREE.CylinderGeometry(.85,.85,.025,36),polDiscM);polDisc.position.set(MPS[2][0],-.61,MPS[2][2]);scene.add(polDisc);
+var polSparks=[];for(var psi=0;psi<42;psi++){var psM=new THREE.MeshBasicMaterial({color:[0xC8DAF0,0xE0ECFF,0xffffff,0xF0F4FF][psi%4],transparent:true,opacity:0});var psX=new THREE.Mesh(new THREE.SphereGeometry(.03+Math.random()*.025,4,4),psM);var psa=Math.random()*Math.PI*2,psr=.2+Math.random()*.6;psX.position.set(MPS[2][0]+Math.cos(psa)*psr,-.4+Math.random()*.4,MPS[2][2]+Math.sin(psa)*psr);psX._bx=MPS[2][0];psX._bz=MPS[2][2];psX._r=psr;psX._ang=psa;psX._spd=.04+Math.random()*.065;scene.add(psX);polSparks.push({x:psX,m:psM});}
+// GIA spotlight at node 3
+var giaL=new THREE.SpotLight(0xffffff,.0,12,Math.PI*.18,.6,2);giaL.position.set(MPS[3][0],5,MPS[3][2]);giaL.target.position.set(MPS[3][0],0,MPS[3][2]);scene.add(giaL);scene.add(giaL.target);
+
+// Midstream stage labels
+var m2L0=mkSp(['✦  MIDSTREAM TRANSFORMATION','Raw Kimberlite → Cut → Polished → GIA Brilliant'],'#C8DAF0',480,58,0,5.0,0);
+var m2L1=mkSp(['BATCH SPLIT: TS100100 → TS100100-I + TS100100-II','Both daughter stones inherit full parent record'],'#E0ECFF',500,54,0,-5.2,0);
+var m2L2=mkSp(['Geo-Tagged · Time-Stamped · Operator-Linked · Cloud-Locked'],'#8AA4C0',540,46,0,4.0,0);
+
+// ══ PHASE 3 — BLOCKCHAIN (Crystal Cyan palette) ══
+var BC=5,BS=2.85,BX0=-(BC-1)*BS/2;var bGrps=[],bDs=[],bCons=[],bRPts=[],bHPts=[],bLbls=[],hLbls=[];
+var bCyan=0xA8CCE0,bCyanL=0xD0E8F0,bCyanD=0x7AAAC0;
+for(var bi=0;bi<BC;bi++){
+  var bx=BX0+bi*BS;
+  var bMat=new THREE.MeshPhongMaterial({color:bCyan,shininess:200,transparent:true,opacity:0,specular:new THREE.Color(.4,.9,.95)});
+  var bWire=new THREE.MeshBasicMaterial({color:bCyanL,wireframe:true,transparent:true,opacity:0});
+  var bg=new THREE.Group();
+  bg.add(new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.52,6),bMat));
+  bg.add(new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.52,6),bWire));
+  bg.position.set(bx,-7.5,0);bg.bm=bMat;bg.bw=bWire;scene.add(bg);
+  var brM=new THREE.MeshBasicMaterial({color:bCyanL,transparent:true,opacity:0});
+  var brX=new THREE.Mesh(new THREE.TorusGeometry(.78,.028,8,36),brM);brX.rotation.x=Math.PI/2;brX.position.set(bx,-7.22,0);scene.add(brX);
+  bg.rm=brM;bg.rx=brX;bGrps.push(bg);
+  // Diamond floating above each block — larger, brighter
+  var bd=mkD(bCyanL,.42);bd.position.set(bx,-6.2,0);scene.add(bd);bDs.push(bd);
+  bLbls.push(mkSp(['Block #'+(bi+1),['Mine','Cutting','Grading','Trade','Retail'][bi]+' Record'],'#D0E8F0',210,58,bx,2.0,0));
+  if(bi<BC-1){
+    var nx=BX0+(bi+1)*BS;
+    var bcM=new THREE.LineBasicMaterial({color:bCyan,transparent:true,opacity:0});
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(bx+.76,0,0),new THREE.Vector3(nx-.76,0,0)]),bcM));bCons.push(bcM);
+    var brpM=new THREE.MeshBasicMaterial({color:bCyanL,transparent:true,opacity:0});
+    var brpX=new THREE.Mesh(new THREE.SphereGeometry(.092,6,6),brpM);scene.add(brpX);
+    bRPts.push({x:brpX,m:brpM,f0:[bx+.76,0,0],f1:[nx-.76,0,0],frac:bi*.22,spd:.007});
+    var bhM=new THREE.MeshBasicMaterial({color:bCyanL,transparent:true,opacity:0});
+    var bhX=new THREE.Mesh(new THREE.SphereGeometry(.13,6,6),bhM);scene.add(bhX);
+    bHPts.push({x:bhX,m:bhM,f0:[bx+.76,.25,0],f1:[nx-.76,.25,0],frac:0,spd:.005,active:false});
+    hLbls.push(mkSp(['HASH #'+(bi+1)+' →','Prev hash embedded'],'#7AAAC0',200,52,(bx+nx)/2,bi%2===0?-1.4:-2.3,0));
+  }
+}
+// Central hero diamond for blockchain phase
+var bCenterD=mkD(bCyanL,1.1);bCenterD.position.set(0,3.5,0);scene.add(bCenterD);
+var bCenterPL=new THREE.PointLight(bCyanL,0,10);bCenterPL.position.set(0,3.5,0);scene.add(bCenterPL);
+var b3L0=mkSp(['⛓  IMMUTABLE BLOCKCHAIN LEDGER','Diamond-sealed hex blocks · Hash-linked · Permanent'],'#D0E8F0',500,60,0,5.5,0);
+var b3L1=mkSp(['◆  Each block: UDID · Weight · Grade · GPS · Timestamp'],'#7AAAC0',440,46,0,-3.8,0);
+var b3L2=mkSp(['ALTER 1 BLOCK → ALL HASHES BREAK — tamper-proof'],'#A8CCE0',440,46,0,-4.9,0);
+
+// ══ PHASE 4 — NETWORK ══
+var NC=20,NPS=[],NNS=[],NES=[],NPTS=[];
+for(var ni=0;ni<NC;ni++){var na=(ni/NC)*Math.PI*2,nr=5.4+Math.sin(ni*1.85)*1.2;var nx2=Math.cos(na)*nr,nz2=Math.sin(na)*nr,ny2=(Math.random()-.5)*2.2;NPS.push([nx2,ny2,nz2]);var nnM=new THREE.MeshPhongMaterial({color:0xC8DAF0,shininess:200,transparent:true,opacity:0,specular:new THREE.Color(.5,.7,1)});var nnX=new THREE.Mesh(new THREE.SphereGeometry(.2,12,12),nnM);nnX.position.set(nx2,ny2,nz2);nnX.nm=nnM;nnX.ny=ny2;scene.add(nnX);NNS.push(nnX);}
+for(var nei=0;nei<NC;nei++)for(var nej=nei+1;nej<NC;nej++){if(Math.random()<.22){var nem=new THREE.LineBasicMaterial({color:0xC8DAF0,transparent:true,opacity:0});scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...NPS[nei]),new THREE.Vector3(...NPS[nej])]),nem));NES.push(nem);}}
+for(var npi=0;npi<36;npi++){var npm=new THREE.MeshBasicMaterial({color:npi%2===0?0xC8DAF0:0xE0ECFF,transparent:true,opacity:0});var npx=new THREE.Mesh(new THREE.SphereGeometry(.07,6,6),npm);scene.add(npx);NPTS.push({x:npx,m:npm,frac:Math.random(),spd:.006+Math.random()*.005,fr:Math.floor(Math.random()*NC),to:Math.floor(Math.random()*NC)});}
+var nLbls=[];['KP Member','G7 Customs','Mine Auth','Rough Node','GIA Lab','GJEPC','Consumer','G7 Port','Retailer'].forEach(function(n,i){
+  // Push labels outward (1.45x radius) and stagger Y so they don't pile up on each other
+  var stagger=(i%2===0?0.85:-0.85);
+  nLbls.push(mkSp([n],'#C8DAF0',150,40,NPS[i][0]*1.45,NPS[i][1]+stagger,NPS[i][2]*1.45));
+});
+var centD=mkBrilliantDiamond(1.8,0xC8DAF0);centD.position.set(0,0,0);scene.add(centD);var centL=new THREE.PointLight(0xC8DAF0,0,16);scene.add(centL);var centL2=new THREE.PointLight(0xFAFCFF,0,10);scene.add(centL2);
+
+// ── DAMTSHAA BOTSWANA ORIGIN NODE — special highlighted node ──
+var btwPos=new THREE.Vector3(-7.2,-1.5,-3.8);
+var btwNodeM=new THREE.MeshPhongMaterial({color:0xE8F4FF,shininess:280,transparent:true,opacity:0,specular:new THREE.Color(1,1,1)});
+var btwNode=new THREE.Mesh(new THREE.SphereGeometry(.32,14,14),btwNodeM);btwNode.position.copy(btwPos);scene.add(btwNode);
+// Outer ring around Botswana node
+var btwRingM=new THREE.MeshBasicMaterial({color:0xFFFFFF,transparent:true,opacity:0});
+var btwRing=new THREE.Mesh(new THREE.TorusGeometry(.48,.022,8,36),btwRingM);btwRing.position.copy(btwPos);btwRing.rotation.x=Math.PI/2;scene.add(btwRing);
+// Connection line from Botswana → center (main chain origin)
+var btwLineM=new THREE.LineBasicMaterial({color:0xE0ECFF,transparent:true,opacity:0,linewidth:2});
+var btwLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([btwPos,new THREE.Vector3(0,0,0)]),btwLineM);scene.add(btwLine);
+// Botswana point light
+var btwPL=new THREE.PointLight(0xE8F4FF,0,8);btwPL.position.copy(btwPos);scene.add(btwPL);
+// Botswana label
+var btwLbl=mkSp(['⛏  DAMTSHAA MINE · BOTSWANA','Origin · 21°25\'S 25°30\'E · Orapa District'],'#FFFFFF',330,60,btwPos.x*1.08,btwPos.y+1.2,btwPos.z*1.08);
+
+var n4L0=mkSp(['🌐  GLOBAL VERIFICATION NETWORK','Every node holds the same immutable truth — always in sync'],'#C8DAF0',430,58,0,4.6,0);
+var n4L1=mkSp(['📱  ONE SCAN · FULL JOURNEY · ANYWHERE','Consumer QR → Origin · Cut · Grade · Chain history'],'#8AA4C0',430,54,0,-4.0,0);
+var n4L2=mkSp(['✓ CONFIDENCE   ✓ COMPLIANCE   ✓ CREDIBILITY','The 3Cs of Diamond Traceability — sealed on-chain'],'#E0ECFF',430,54,0,-5.2,0);
+var n4L3=mkSp(['☁  CLOUD DIAMOND LEDGER','5-stage supply chain converges · Immutable'],'#C8DAF0',300,52,7.0,3.5,0);
+
+// ══ STATE ══
+var PHDATA=[
+  {col:'#C8DAF0',label:'UPSTREAM — DAMTSHAA DIAMOND MINE',desc:'Damtshaa Mine · Orapa District · Botswana · Open-pit Kimberlite · Rough 2.1ct crystal rises 340m',num:'01',transLabel:'MINING',transSub:'Damtshaa Mine · Orapa · Botswana'},
+  {col:'#E0ECFF',label:'UPSTREAM — 3D SCANNING',desc:'Non-contact laser arms rotate 360° · 160 particles map every facet · Phone streams scan to cloud · UDID assigned',num:'02',transLabel:'SCANNING',transSub:'Non-Contact Laser Mapping'},
+  {col:'#C8DAF0',label:'MIDSTREAM — TRANSFORMATION',desc:'Kimberlite rock → Cutting (facets form) → Polishing (57 facets buffed) → GIA brilliant D VVS1 certified',num:'03',transLabel:'MIDSTREAM',transSub:'Raw → Cut → Polish → Brilliant'},
+  {col:'#E0ECFF',label:'BLOCKCHAIN — IMMUTABLE LEDGER',desc:'5 hex blocks sealed with diamond · Hash-linked chain · Alter one block and all hashes break — tamper-proof',num:'04',transLabel:'BLOCKCHAIN',transSub:'Immutable Diamond Ledger'},
+  {col:'#C8DAF0',label:'DOWNSTREAM — GLOBAL NETWORK',desc:'20 global nodes · One consumer QR scan reveals the full 340m-to-retail journey · Confidence · Compliance · Credibility',num:'05',transLabel:'NETWORK',transSub:'Confidence · Compliance · Credibility'},
+];
+var PDUR=[440,440,520,420,400];
+var TRANS_DUR=140;
+var ph=0,phT=0,paused=false,T=0;
+var cTX=0,cTY=5,cTZ=18,cX=0,cY=5,cZ=18;
+var qrOn=false,qrTmrs=[];
+
+// ══ TRANSITION ══
+var mode='phase';var transT=0,transFrom=0,transTo=0,transDrag=false,transDragProgress=0;
+function startTransition(from,to){if(mode==='transition')return;mode='transition';transT=0;transFrom=from;transTo=to;transDrag=false;resetAll();heroGroup.visible=true;var pd=PHDATA[to];document.getElementById('transTitle').textContent=pd.transLabel;document.getElementById('transSub').textContent=pd.transSub;var tt=document.getElementById('transTitle');tt.style.animation='none';void tt.offsetWidth;tt.style.animation='heroTitle 2.2s ease-out forwards';var ts=document.getElementById('transSub');ts.style.animation='none';void ts.offsetWidth;ts.style.animation='heroSub 2.2s ease-out forwards';ts.style.animationDelay='.2s';document.getElementById('transOverlay').classList.add('active');document.getElementById('vignette').classList.add('active');document.getElementById('speedLines').classList.add('active');document.getElementById('topbar').classList.add('hide');document.getElementById('ctrls').classList.add('hide');document.getElementById('hud').classList.add('hide');triggerPhaseFlash();}
+function endTransition(){mode='phase';ph=transTo;phT=0;heroGroup.visible=false;heroDiamond.m.opacity=0;heroDiamond.w.opacity=0;heroDiamond.gm.opacity=0;heroCore.material.opacity=0;heroGlow.material.opacity=0;heroRings.forEach(function(m){m.opacity=0;});heroParticles.forEach(function(p){p.m.opacity=0;});heroPL.intensity=0;heroPL2.intensity=0;document.getElementById('transOverlay').classList.remove('active');document.getElementById('vignette').classList.remove('active');document.getElementById('speedLines').classList.remove('active');document.getElementById('topbar').classList.remove('hide');document.getElementById('ctrls').classList.remove('hide');document.getElementById('hud').classList.remove('hide');setUI(ph);resetAll();triggerPhaseFlash();}
+function gotoPhase(p){if(p===ph&&mode==='phase')return;if(mode==='transition')return;startTransition(ph,p);}
+
+// ══ GESTURES ══
+var gestureStartX=0,gestureActive=false,gestureMoved=false,SWIPE_THRESHOLD=50;
+function onGS(x,y){gestureStartX=x;gestureActive=true;gestureMoved=false;wrap.classList.add('dragging');if(mode==='transition'){transDrag=true;transDragProgress=transT/TRANS_DUR;}}
+function onGM(x,y){if(!gestureActive)return;if(Math.abs(x-gestureStartX)>10)gestureMoved=true;if(mode==='transition'&&transDrag){var sc=(x-gestureStartX)/(W*.3);transDragProgress=C(transDragProgress+sc*.02);transT=transDragProgress*TRANS_DUR;document.getElementById('transProgressFill').style.width=(transDragProgress*100)+'%';}}
+function onGE(x,y){wrap.classList.remove('dragging');if(!gestureActive){gestureActive=false;return;}gestureActive=false;if(mode==='transition'&&transDrag){transDrag=false;if(transDragProgress>.6){transT=TRANS_DUR*.7;}else{endTransition();ph=transFrom;phT=0;setUI(ph);resetAll();}return;}var dx=x-gestureStartX;if(gestureMoved&&Math.abs(dx)>SWIPE_THRESHOLD&&mode==='phase'){if(dx<-SWIPE_THRESHOLD){switchMode('manual');gotoPhase((ph+1)%5);}else if(dx>SWIPE_THRESHOLD){switchMode('manual');gotoPhase((ph-1+5)%5);}}}
+wrap.addEventListener('touchstart',function(e){e.preventDefault();onGS(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+wrap.addEventListener('touchmove',function(e){e.preventDefault();onGM(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+wrap.addEventListener('touchend',function(e){onGE(e.changedTouches[0].clientX,e.changedTouches[0].clientY);});
+wrap.addEventListener('mousedown',function(e){if(e.target.tagName==='BUTTON'||e.target.classList.contains('tn'))return;onGS(e.clientX,e.clientY);});
+wrap.addEventListener('mousemove',function(e){onGM(e.clientX,e.clientY);});
+wrap.addEventListener('mouseup',function(e){onGE(e.clientX,e.clientY);});
+wrap.addEventListener('wheel',function(e){if(mode==='transition')return;e.preventDefault();if(e.deltaY>30){switchMode('manual');gotoPhase((ph+1)%5);}else if(e.deltaY<-30){switchMode('manual');gotoPhase((ph-1+5)%5);}},{passive:false});
+document.addEventListener('keydown',function(e){if(mode==='transition')return;if(e.key==='ArrowRight'||e.key==='ArrowDown'){switchMode('manual');gotoPhase((ph+1)%5);}if(e.key==='ArrowLeft'||e.key==='ArrowUp'){switchMode('manual');gotoPhase((ph-1+5)%5);}if(e.key===' '){togglePause();e.preventDefault();}});
+var autoMode=true;
+function switchMode(m){autoMode=(m==='auto');document.getElementById('modeInd').textContent=autoMode?'◈ AUTO':'◈ MANUAL';if(!autoMode)document.getElementById('swipeHint').style.opacity='0';}
+function togglePause(){if(autoMode){paused=!paused;document.getElementById('ppb').textContent=paused?'▶':'⏸';}else{switchMode('auto');paused=false;document.getElementById('ppb').textContent='⏸';}}
+
+function triggerPhaseFlash(){var f=document.getElementById('phaseFlash');f.style.animation='none';void f.offsetWidth;f.style.animation='phaseFlash 1.1s ease-out forwards';}
+function setUI(p){var pd=PHDATA[p];document.getElementById('htitle').textContent=pd.label;document.getElementById('hdesc').textContent=pd.desc;document.getElementById('phase-num').textContent='PHASE '+pd.num+' / 05';var pcts=[0,25,50,75,100];document.getElementById('tlfill').style.width=pcts[p]+'%';document.getElementById('tldot').style.left=pcts[p]+'%';for(var i=0;i<5;i++){var tn=document.getElementById('tn'+i);if(tn){tn.style.color=i===p?pd.col:(i<p?'rgba(200,218,240,.45)':'rgba(255,255,255,.18)');tn.style.fontWeight=i===p?'600':'400';}}}function showQR(){if(qrOn)return;qrOn=true;document.getElementById('qrpanel').style.opacity='1';for(var i=0;i<5;i++){(function(ii){qrTmrs.push(setTimeout(function(){var e=document.getElementById('tk'+ii);if(e)e.classList.add('ton');},420+ii*560));})(i);}qrTmrs.push(setTimeout(function(){for(var i=0;i<3;i++){(function(ii){setTimeout(function(){var e=document.getElementById('bd'+ii);if(e)e.style.opacity='1';},ii*360);})(i);}},3600));}
+function hideQR(){qrOn=false;document.getElementById('qrpanel').style.opacity='0';for(var i=0;i<5;i++){var e=document.getElementById('tk'+i);if(e)e.classList.remove('ton');}for(var i=0;i<3;i++){var e2=document.getElementById('bd'+i);if(e2)e2.style.opacity='0';}qrTmrs.forEach(function(t){clearTimeout(t);});qrTmrs=[];}
+
+var bloomFrame=0;
+function drawBloom(){if(bloomFrame++%3!==0)return;bloomCtx.clearRect(0,0,W,H);var gA=mode==='transition'?.08+Math.sin(T*.025)*.03:.04+Math.sin(T*.018)*.012;var grd=bloomCtx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.min(W,H)*.55);grd.addColorStop(0,'rgba(220,232,248,'+gA+')');grd.addColorStop(.5,'rgba(200,218,240,'+(gA*.3)+')');grd.addColorStop(1,'rgba(0,0,0,0)');bloomCtx.fillStyle=grd;bloomCtx.fillRect(0,0,W,H);}
+
+function resetAll(){
+  P0.mats.forEach(function(m){m.opacity=0;});P0.trucks.forEach(function(t){t.mat.opacity=0;});pgM.opacity=0;bmM.opacity=0;
+  mineD.m.opacity=0;mineD.w.opacity=0;mineD.gm.opacity=0;mineD.position.y=-9;minePL.intensity=0;minePL2.intensity=0;mineCore.material.opacity=0;
+  shards.forEach(function(s){s.mat.opacity=0;s.m.position.y=-2.2+Math.random()*1.5;s.m._vy=.04+Math.random()*.07;});
+  platM.opacity=0;prM.opacity=0;scanD.m.opacity=0;scanD.w.opacity=0;
+  a1M.opacity=0;a2M.opacity=0;h1M.opacity=0;h2M.opacity=0;l1M.opacity=0;l2M.opacity=0;aL1.intensity=0;aL2.intensity=0;
+  SR.forEach(function(s){s.m.opacity=0;});DP.forEach(function(d){d.dpm.opacity=0;d.dpw.opacity=0;});
+  phoneBM.opacity=0;phoneScrnM.opacity=0;phoneCamM.opacity=0;phoneConnM.opacity=0;phoneLight.intensity=0;pBezelM.opacity=0;
+  devBodyM.opacity=0;devWireM.opacity=0;devScreenM.opacity=0;devDishM.opacity=0;devDishCM.opacity=0;
+  led1M.opacity=0;led2M.opacity=0;led3M.opacity=0;uplinkM.opacity=0;devPL.intensity=0;cloudSM.opacity=0;cloudRM.opacity=0;
+  sBeams.forEach(function(m){m.opacity=0;});
+  midDs.forEach(function(d){d.m.opacity=0;d.w.opacity=0;d.gm.opacity=0;if(d._roughTop)d._roughTop.opacity=0;if(d._cpM)d._cpM.opacity=0;if(d._chips)d._chips.forEach(function(c){c.opacity=0;});if(d._coreM)d._coreM.opacity=0;if(d._r1M)d._r1M.opacity=0;if(d._auraM)d._auraM.opacity=0;if(d._ring1M)d._ring1M.opacity=0;if(d._ring2M)d._ring2M.opacity=0;if(d._spM)d._spM.opacity=0;});
+  midLts.forEach(function(l){l.intensity=0;});midRgs.forEach(function(r){r.m.opacity=0;});
+  transArrows.forEach(function(m){m.opacity=0;});midPts.forEach(function(p){p.m.opacity=0;});
+  polTabM.opacity=0;polRimM.opacity=0;polDiscM.opacity=0;polSparks.forEach(function(s){s.m.opacity=0;});giaL.intensity=0;
+  bGrps.forEach(function(b){b.bm.opacity=0;b.bw.opacity=0;b.rm.opacity=0;b.position.y=-7.5;});bDs.forEach(function(d){d.m.opacity=0;d.w.opacity=0;d.position.y=-6.2;});
+  bCons.forEach(function(m){m.opacity=0;});bRPts.forEach(function(p){p.m.opacity=0;});bHPts.forEach(function(h){h.m.opacity=0;h.frac=0;h.active=false;});
+  bCenterD.m.opacity=0;bCenterD.w.opacity=0;bCenterD.gm.opacity=0;bCenterPL.intensity=0;
+  bLbls.forEach(function(s){s.tgt=0;});hLbls.forEach(function(s){s.tgt=0;});
+  centD.m.opacity=0;centD.w.opacity=0;if(centD._coreM)centD._coreM.opacity=0;if(centD._auraM)centD._auraM.opacity=0;if(centD._ring1M)centD._ring1M.opacity=0;if(centD._ring2M)centD._ring2M.opacity=0;if(centD._spM)centD._spM.opacity=0;
+  centL.intensity=0;centL2.intensity=0;
+  btwNodeM.opacity=0;btwRingM.opacity=0;btwLineM.opacity=0;btwPL.intensity=0;btwLbl.tgt=0;
+  NNS.forEach(function(n){n.nm.opacity=0;});NES.forEach(function(m){m.opacity=0;});NPTS.forEach(function(p){p.m.opacity=0;});
+  nLbls.forEach(function(s){s.tgt=0;});SPTS.forEach(function(s){s.tgt=0;});hideQR();
+}
+
+// ══ RENDER ══
+function render(){
+  requestAnimationFrame(render);
+  if(paused&&mode==='phase'){renderer.render(scene,camera);return;}
+  T+=.5;
+  globalBlue.intensity=.38+Math.sin(T*.022)*.18;
+
+  // TRANSITION MODE
+  if(mode==='transition'){
+    if(!transDrag)transT++;
+    var tp=C(transT/TRANS_DUR);
+    document.getElementById('transProgressFill').style.width=(tp*100)+'%';
+    var oA=tp*Math.PI*1.6,oR=8+Math.sin(tp*Math.PI)*3,oY=1.5+Math.sin(tp*Math.PI*2)*.8;
+    camera.position.set(Math.sin(oA)*oR,oY,Math.cos(oA)*oR);camera.lookAt(0,.3,0);
+    var htp=eio(C(tp*2));
+    heroDiamond.m.opacity=L(heroDiamond.m.opacity,htp>.05?.92:0,.04);heroDiamond.w.opacity=L(heroDiamond.w.opacity,htp>.05?.14:0,.04);heroDiamond.gm.opacity=L(heroDiamond.gm.opacity,htp>.05?.06:0,.04);heroCore.material.opacity=L(heroCore.material.opacity,htp>.1?(.4+Math.sin(T*.06)*.15):0,.04);heroGlow.material.opacity=L(heroGlow.material.opacity,htp>.1?(.06+Math.sin(T*.04)*.02):0,.03);
+    heroGroup.rotation.y+=.018;heroDiamond.scale.setScalar(1+Math.sin(T*.05)*.04);
+    heroRings.forEach(function(m,i){m.opacity=L(m.opacity,htp>.1?(.3+Math.sin(T*.07+i*1.2)*.15):0,.03);});
+    heroGroup.children.forEach(function(c,i){if(i>=4&&i<8){c.rotation.z+=.015+i*.004;c.rotation.x+=.008;}});
+    heroParticles.forEach(function(p){var pOp=htp>.05?(.5+Math.sin(T*.1+p.x._phase)*.3):0;p.m.opacity=L(p.m.opacity,pOp,.03);var ex=.3+eio(C(tp*1.5));var an=T*p.x._speed+p.x._phase;p.x.position.set(p.x._basePos.x*ex+Math.sin(an)*.3,p.x._basePos.y*ex+Math.cos(an*.7)*.2,p.x._basePos.z*ex);});
+    heroPL.intensity=L(heroPL.intensity,htp>.1?4:0,.04);heroPL2.intensity=L(heroPL2.intensity,htp>.1?1.8:0,.04);
+    if(tp>.85){var fo=(1-tp)/.15;heroDiamond.m.opacity*=fo;heroDiamond.w.opacity*=fo;heroCore.material.opacity*=fo;heroGlow.material.opacity*=fo;heroRings.forEach(function(m){m.opacity*=fo;});heroParticles.forEach(function(p){p.m.opacity*=fo;});heroPL.intensity*=fo;heroPL2.intensity*=fo;}
+    if(transT>=TRANS_DUR)endTransition();
+    renderer.render(scene,camera);drawBloom();return;
+  }
+
+  // PHASE MODE
+  phT++;SPTS.forEach(function(s){s.tgt=0;});
+  var dur=PDUR[ph],pt=C(phT/dur),ept=eio(pt);
+  var tf2=document.getElementById('timerfill');if(tf2)tf2.style.width=(pt*100)+'%';
+  var tl=document.getElementById('timerlabel');if(tl)tl.textContent=Math.ceil((1-pt)*dur/60|0)+'s';
+
+  // Phase 0: MINING
+  if(ph===0){
+    cTX=0;cTY=9;cTZ=22;
+    var tv=C(ept*2.6);P0.mats.forEach(function(m,i){m.opacity=L(m.opacity,C(tv-.03*i)*.88,.012);});
+    P0.trucks.forEach(function(t){t.mat.opacity=L(t.mat.opacity,.92,.014);t.m._ang+=t.m._spd;t.m.position.set(Math.cos(t.m._ang)*t.m._R,-2.4-t.m._lvl*.5+.09,Math.sin(t.m._ang)*t.m._R);t.m.rotation.y=-t.m._ang;});
+    pgM.opacity=L(pgM.opacity,.5+Math.sin(T*.1)*.14,.014);
+    if(ept>.22){var rp=C((ept-.22)/.78);mineD.m.opacity=L(mineD.m.opacity,rp*.85,.015);mineD.w.opacity=L(mineD.w.opacity,rp*.28,.015);mineD.gm.opacity=L(mineD.gm.opacity,rp*.10,.015);mineCore.material.opacity=L(mineCore.material.opacity,rp*.15+Math.sin(T*.08)*.07,.015);var floatY=ept>.6?(1.2+Math.sin(T*.035)*.22):L(-8.5,1.2,eio(rp));mineD.position.y=L(mineD.position.y,floatY,.015);mineD.rotation.y+=.010;mineD.rotation.x=Math.sin(T*.006)*.03;minePL.intensity=L(minePL.intensity,rp*2.0,.015);minePL2.intensity=L(minePL2.intensity,rp*1.6,.015);minePL.position.copy(mineD.position);minePL2.position.copy(mineD.position);bmM.opacity=L(bmM.opacity,rp>.05?Math.sin(T*.13)*.22+.22:0,.014);bmX.position.y=L(bmX.position.y,mineD.position.y*.5,.015);}
+    if(ept>.35){shards.forEach(function(s){s.mat.opacity=L(s.mat.opacity,.72,.014);s.m.position.y+=s.m._vy*.35;s.m._vy+=s.m._gy;s.m.rotation.x+=s.m._rx;s.m.rotation.z+=s.m._rz;});}
+    m0L0.tgt=.92;if(ept>.45)m0L1.tgt=.88;if(ept>.65)m0L2.tgt=.82;
+  } else {P0.mats.forEach(function(m){m.opacity*=.96;});P0.trucks.forEach(function(t){t.mat.opacity*=.96;});pgM.opacity*=.95;bmM.opacity*=.95;mineD.m.opacity*=.96;mineD.w.opacity*=.96;mineD.gm.opacity*=.96;minePL.intensity*=.93;minePL2.intensity*=.93;mineCore.material.opacity*=.94;shards.forEach(function(s){s.mat.opacity*=.96;});}
+
+  // Phase 1: SCANNING
+  if(ph===1){
+    cTX=0;cTY=2;cTZ=13;
+    scanD.m.opacity=L(scanD.m.opacity,.88,.015);scanD.w.opacity=L(scanD.w.opacity,.14,.015);scanD.rotation.y+=.007;
+    platM.opacity=L(platM.opacity,.82,.015);prM.opacity=L(prM.opacity,.52+Math.sin(T*.08)*.16,.015);
+    a1M.opacity=L(a1M.opacity,.74,.014);a2M.opacity=L(a2M.opacity,.74,.014);h1M.opacity=L(h1M.opacity,.8,.015);h2M.opacity=L(h2M.opacity,.76,.015);
+    A1.rotation.y+=.013;A2.rotation.y+=.019;
+    l1M.opacity=L(l1M.opacity,.54+Math.sin(T*.14)*.22,.015);l2M.opacity=L(l2M.opacity,.48+Math.sin(T*.18)*.2,.015);
+    aL1.intensity=L(aL1.intensity,1.3+Math.sin(T*.12)*.5,.015);aL2.intensity=L(aL2.intensity,1.0+Math.sin(T*.15)*.4,.015);
+    SR.forEach(function(s,i){s.m.opacity=L(s.m.opacity,C((ept-.04*i)*3)*.5,.013);s.r.position.y=L(2.8,-2.8,ept);s.r.rotation.z+=.013+i*.002;});
+    DP.forEach(function(d,i){var del=i/160*.36,dp=C((ept-del)/.64),tgt=dp>.04?(.4+Math.sin(T*.07+i*.35)*.25):0;d.dpm.opacity=L(d.dpm.opacity,tgt,.016);d.dpw.opacity=L(d.dpw.opacity,tgt*.28,.016);d.dpAng+=d.dpSpd;var q=new THREE.Quaternion();q.setFromAxisAngle(d.dpAx,d.dpAng);var bv=new THREE.Vector3(d.dpR,0,0);bv.applyQuaternion(q);d.position.set(bv.x,bv.y*.88,bv.z);d.rotation.x+=d.dpSx;d.rotation.y+=d.dpSy;d.rotation.z+=d.dpSz;d.scale.setScalar(.78+Math.sin(T*.09+d.dpPh)*.18);});
+    // PHONE — live canvas screen
+    if(ept>.18){
+      var pa=C((ept-.18)/.82);
+      phoneBM.opacity=L(phoneBM.opacity,pa*.92,.016);
+      pBezelM.opacity=L(pBezelM.opacity,pa*.65,.016);
+      phoneScrnM.opacity=L(phoneScrnM.opacity,pa*.96,.016); // screen clearly visible
+      phoneCamM.opacity=L(phoneCamM.opacity,pa*.88,.016);
+      phoneConnM.opacity=L(phoneConnM.opacity,pa*.6+Math.sin(T*.15)*.15,.016);
+      phoneLight.intensity=L(phoneLight.intensity,pa*1.2,.014);
+      // Update the live canvas texture every 2 frames
+      if(Math.floor(T)%2===0)drawPhoneScreen(T,pa);
+    }
+    devBodyM.opacity=L(devBodyM.opacity,.84,.014);devWireM.opacity=L(devWireM.opacity,.5,.014);devScreenM.opacity=L(devScreenM.opacity,.4,.014);devDishM.opacity=L(devDishM.opacity,.88,.014);devDishCM.opacity=L(devDishCM.opacity,.93,.014);
+    led1M.opacity=L(led1M.opacity,.9+Math.sin(T*.28)*.08,.014);led2M.opacity=L(led2M.opacity,.7+Math.sin(T*.22)*.28,.014);led3M.opacity=L(led3M.opacity,.6+Math.sin(T*.18)*.36,.014);
+    uplinkM.opacity=L(uplinkM.opacity,.32+Math.sin(T*.12)*.18,.014);devPL.intensity=L(devPL.intensity,2.4,.015);
+    devG.rotation.y=Math.sin(T*.009)*.06;devDish.rotation.z+=.012;
+    cloudSM.opacity=L(cloudSM.opacity,.88,.013);cloudRM.opacity=L(cloudRM.opacity,.56+Math.sin(T*.08)*.2,.013);cloudR.rotation.z+=.02;cloudS.position.y=3.4+Math.sin(T*.045)*.14;cloudR.position.y=cloudS.position.y;
+    sBeams.forEach(function(m,i){m.opacity=L(m.opacity,C(ept*3-.14*i)*.45,.012);});
+    s1L0.tgt=.92;if(ept>.28)s1L1.tgt=.86;if(ept>.44)s1L2.tgt=.9;if(ept>.58)s1L3.tgt=.85;if(ept>.32)s1L4.tgt=.88;if(ept>.20)s1L5.tgt=.88;if(ept>.50)s1L6.tgt=.82;
+  } else {
+    scanD.m.opacity*=.95;scanD.w.opacity*=.95;platM.opacity*=.95;prM.opacity*=.95;a1M.opacity*=.95;a2M.opacity*=.95;h1M.opacity*=.95;h2M.opacity*=.95;l1M.opacity*=.94;l2M.opacity*=.94;aL1.intensity*=.92;aL2.intensity*=.92;SR.forEach(function(s){s.m.opacity*=.95;});DP.forEach(function(d){d.dpm.opacity*=.94;d.dpw.opacity*=.94;});
+    phoneBM.opacity*=.95;phoneScrnM.opacity*=.95;phoneCamM.opacity*=.95;phoneConnM.opacity*=.95;phoneLight.intensity*=.93;pBezelM.opacity*=.95;
+    devBodyM.opacity*=.95;devWireM.opacity*=.95;devScreenM.opacity*=.95;devDishM.opacity*=.95;devDishCM.opacity*=.95;led1M.opacity*=.95;led2M.opacity*=.95;led3M.opacity*=.95;uplinkM.opacity*=.95;devPL.intensity*=.93;cloudSM.opacity*=.95;cloudRM.opacity*=.95;sBeams.forEach(function(m){m.opacity*=.96;});
+  }
+
+  // Phase 2: MIDSTREAM — 4-stage TRANSFORMATION
+  if(ph===2){
+    cTX=0;cTY=1.0;cTZ=22;
+    midDs.forEach(function(d,i){
+      var del=.18*i,dp=C((ept-del)/(1-del));
+      var op=L(d.m.opacity,dp>.04?(i===0?.82:.86):0,.015);
+      d.m.opacity=op;d.w.opacity=op*.18;d.gm.opacity=op*.07;
+      d.position.y=L(d.position.y,0,.014);
+      d.rotation.y+=.008+i*.003;
+      midLts[i].intensity=L(midLts[i].intensity,op>.1?.9:0,.015);
+      midRgs[i].m.opacity=L(midRgs[i].m.opacity,op>.1?.42+Math.sin(T*.05+i)*.1:0,.014);midRgs[i].r.rotation.z+=.008;
+      // Stage-specific extra material fades
+      if(i===1&&d._roughTop)d._roughTop.opacity=L(d._roughTop.opacity,op*.7,.014);// rough top on cutting node
+      if(i===1&&d._cpM)d._cpM.opacity=L(d._cpM.opacity,dp>.3?(.4+Math.sin(T*.1)*.2):0,.014);// cutting plane pulses
+      if(i===1&&d._chips)d._chips.forEach(function(c){c.opacity=L(c.opacity,dp>.2?op*.6:0,.014);});// chips flying
+      if(i===2&&d._coreM)d._coreM.opacity=L(d._coreM.opacity,dp>.3?(.3+Math.sin(T*.08)*.12):0,.014);
+      if(i===2&&d._r1M)d._r1M.opacity=L(d._r1M.opacity,dp>.3?.38+Math.sin(T*.06)*.12:0,.013);
+      if(i===3&&d._coreM)d._coreM.opacity=L(d._coreM.opacity,dp>.4?(.5+Math.sin(T*.06)*.2):0,.014);
+      if(i===3&&d._auraM)d._auraM.opacity=L(d._auraM.opacity,dp>.4?(.08+Math.sin(T*.04)*.03):0,.013);
+      if(i===3&&d._ring1M)d._ring1M.opacity=L(d._ring1M.opacity,dp>.4?.5+Math.sin(T*.07)*.15:0,.013);
+      if(i===3&&d._ring2M)d._ring2M.opacity=L(d._ring2M.opacity,dp>.4?.35+Math.sin(T*.09)*.12:0,.013);
+      if(i===3&&d._spM)d._spM.opacity=L(d._spM.opacity,dp>.5?.6+Math.sin(T*.08)*.3:0,.013);// sparkle cross
+      if(dp>.28)midNLs[i].tgt=.94;if(dp>.45)midILs[i].tgt=.9;
+    });
+    // GIA spotlight brightens for the final brilliant diamond
+    giaL.intensity=L(giaL.intensity,C(ept*2-.5)*2.5,.012);
+    transArrows.forEach(function(m,i){m.opacity=L(m.opacity,C(ept*3-.22*i)*.6,.013);});
+    midPts.forEach(function(p){p.m.opacity=L(p.m.opacity,C(ept*2-.1)*.86,.013);p.frac=(p.frac+p.spd)%1;var a=MPS[p.s],b=MPS[p.s+1];p.x.position.set(L(a[0],b[0],p.frac),0,0);});
+    polTabM.opacity=L(polTabM.opacity,C(ept*3-.8)*.88,.014);polRimM.opacity=L(polRimM.opacity,C(ept*3-.8)*.72+Math.sin(T*.08)*.16,.014);polDiscM.opacity=L(polDiscM.opacity,C(ept*3-.8)*.92,.014);polDisc.rotation.y+=.06;
+    polSparks.forEach(function(s,i){var spOp=C(ept*3-.85)*(0.5+Math.sin(T*.2+i*.4)*.5);s.m.opacity=L(s.m.opacity,spOp*.92,.018);s.x._ang+=s.x._spd;var cr=s.x._r*(0.8+Math.sin(T*.1+i)*.2);s.x.position.set(s.x._bx+Math.cos(s.x._ang)*cr,-.4+Math.abs(Math.sin(T*.15+i*.3))*.5,s.x._bz+Math.sin(s.x._ang)*cr);});
+    m2L0.tgt=.92;if(ept>.28)m2L2.tgt=.88;if(ept>.75)m2L1.tgt=.84;
+  } else {
+    midDs.forEach(function(d){d.m.opacity*=.95;d.w.opacity*=.95;d.gm.opacity*=.95;if(d._roughTop)d._roughTop.opacity*=.95;if(d._cpM)d._cpM.opacity*=.95;if(d._chips)d._chips.forEach(function(c){c.opacity*=.95;});if(d._coreM)d._coreM.opacity*=.95;if(d._r1M)d._r1M.opacity*=.95;if(d._auraM)d._auraM.opacity*=.95;if(d._ring1M)d._ring1M.opacity*=.95;if(d._ring2M)d._ring2M.opacity*=.95;if(d._spM)d._spM.opacity*=.95;});
+    midLts.forEach(function(l){l.intensity*=.95;});midRgs.forEach(function(r){r.m.opacity*=.95;});
+    transArrows.forEach(function(m){m.opacity*=.95;});midPts.forEach(function(p){p.m.opacity*=.95;});
+    polTabM.opacity*=.95;polRimM.opacity*=.95;polDiscM.opacity*=.95;polSparks.forEach(function(s){s.m.opacity*=.95;});giaL.intensity*=.92;
+  }
+
+  // Phase 3: BLOCKCHAIN (Crystal Cyan)
+  if(ph===3){
+    cTX=0;cTY=2.5;cTZ=24;
+    // Center hero diamond above the chain
+    bCenterD.m.opacity=L(bCenterD.m.opacity,C(ept*2)*.88,.014);
+    bCenterD.w.opacity=L(bCenterD.w.opacity,C(ept*2)*.15,.014);
+    bCenterD.gm.opacity=L(bCenterD.gm.opacity,C(ept*2)*.06,.013);
+    bCenterD.rotation.y+=.015;bCenterD.scale.setScalar(1+Math.sin(T*.05)*.04);
+    bCenterPL.intensity=L(bCenterPL.intensity,C(ept*2)*2.5,.014);
+    bGrps.forEach(function(b,i){var bp=C(ept*1.7-.2*i);var ty=L(b.position.y,0,.014);b.position.y=ty;b.bm.opacity=L(b.bm.opacity,bp>.04?.82:0,.013);b.bw.opacity=L(b.bw.opacity,bp>.04?.35:0,.013);b.rotation.y+=.009;b.rm.opacity=L(b.rm.opacity,bp>.04?.52+Math.sin(T*.06+i)*.13:0,.012);b.rx.position.y=ty+.28;});
+    bDs.forEach(function(d,i){var dp=C(ept*1.7-.18*i);d.m.opacity=L(d.m.opacity,dp>.04?.95:0,.013);d.w.opacity=L(d.w.opacity,dp>.04?.25:0,.013);d.gm.opacity=L(d.gm.opacity,dp>.04?.08:0,.013);d.position.y=L(d.position.y,1.3,.013);d.rotation.y+=.017;d.scale.setScalar(1+Math.sin(T*.06+i)*.04);});
+    bCons.forEach(function(m,i){m.opacity=L(m.opacity,C(ept*2-.32*i)*.65,.013);});
+    bRPts.forEach(function(p){p.m.opacity=L(p.m.opacity,C(ept*1.8)*.84,.012);p.frac=(p.frac+p.spd)%1;p.x.position.set(L(p.f0[0],p.f1[0],p.frac),Math.sin(p.frac*Math.PI)*.26,0);});
+    bHPts.forEach(function(h,i){var trig=.22+i*.17;if(ept>trig&&!h.active){h.active=true;h.frac=0;}if(h.active){h.m.opacity=L(h.m.opacity,.92,.015);h.frac=Math.min(1,h.frac+h.spd);h.x.position.set(L(h.f0[0],h.f1[0],h.frac),Math.sin(h.frac*Math.PI)*.46,.18);h.x.scale.setScalar(.72+Math.sin(T*.14+i)*.28);if(h.frac>=.98){h.m.opacity=L(h.m.opacity,0,.04);if(h.m.opacity<.05){h.active=false;h.frac=0;}}}hLbls[i].tgt=C(ept*2-.35*i)>.44?.82:0;});
+    bLbls.forEach(function(s,i){s.tgt=C(ept*2-.22*i)>.38?.86:0;});
+    b3L0.tgt=.92;if(ept>.55)b3L1.tgt=.86;if(ept>.72)b3L2.tgt=.82;
+  } else {bCenterD.m.opacity*=.95;bCenterD.w.opacity*=.95;bCenterD.gm.opacity*=.95;bCenterPL.intensity*=.93;bGrps.forEach(function(b){b.bm.opacity*=.95;b.bw.opacity*=.95;b.rm.opacity*=.95;});bDs.forEach(function(d){d.m.opacity*=.95;d.w.opacity*=.95;});bCons.forEach(function(m){m.opacity*=.95;});bRPts.forEach(function(p){p.m.opacity*=.95;});bHPts.forEach(function(h){h.m.opacity*=.93;h.active=false;});bLbls.forEach(function(s){s.material.opacity*=.95;});hLbls.forEach(function(s){s.material.opacity*=.95;});}
+
+  // Phase 4: NETWORK
+  if(ph===4){
+    cTX=0;cTY=0;cTZ=32;
+    // Central brilliant diamond
+    centD.m.opacity=L(centD.m.opacity,.9,.014);centD.w.opacity=L(centD.w.opacity,.12,.014);
+    if(centD._coreM)centD._coreM.opacity=L(centD._coreM.opacity,.55+Math.sin(T*.06)*.2,.014);
+    if(centD._auraM)centD._auraM.opacity=L(centD._auraM.opacity,.07+Math.sin(T*.04)*.025,.013);
+    if(centD._ring1M)centD._ring1M.opacity=L(centD._ring1M.opacity,.52+Math.sin(T*.07)*.16,.013);
+    if(centD._ring2M)centD._ring2M.opacity=L(centD._ring2M.opacity,.38+Math.sin(T*.09)*.14,.013);
+    if(centD._spM)centD._spM.opacity=L(centD._spM.opacity,.7+Math.sin(T*.08)*.28,.013);
+    centD.rotation.y+=.009;centD.scale.setScalar(1+Math.sin(T*.04)*.044);centL.intensity=L(centL.intensity,3.0,.015);centL2.intensity=L(centL2.intensity,1.1,.015);
+    NNS.forEach(function(n,i){n.nm.opacity=L(n.nm.opacity,C(ept*2.4-.06*i)*.9,.012);n.position.y=n.ny+Math.sin(T*.03+i*1.05)*.17;});
+    NES.forEach(function(m,i){m.opacity=L(m.opacity,C(ept*2.2-.04*i)*.52,.012);});
+    NPTS.forEach(function(p){p.m.opacity=L(p.m.opacity,.86,.012);p.frac+=p.spd;if(p.frac>1){p.frac=0;p.fr=p.to;p.to=Math.floor(Math.random()*NC);}var fr=NPS[p.fr],to=NPS[p.to];p.x.position.set(L(fr[0],to[0],p.frac),L(fr[1],to[1],p.frac)+Math.sin(p.frac*Math.PI)*.44,L(fr[2],to[2],p.frac));});
+    nLbls.forEach(function(s,i){s.tgt=C(ept*2.6-.12*i)>.4?.78:0;});
+    // Botswana origin node — appears early, prominently
+    btwNodeM.opacity=L(btwNodeM.opacity,C(ept*2)*.92,.014);
+    btwRingM.opacity=L(btwRingM.opacity,C(ept*2)*(.58+Math.sin(T*.07)*.2),.014);btwRing.rotation.z+=.018;
+    btwLineM.opacity=L(btwLineM.opacity,C(ept*2.2)*.72+Math.sin(T*.1)*.12,.013);
+    btwPL.intensity=L(btwPL.intensity,C(ept*2)*1.8,.014);
+    if(ept>.3)btwLbl.tgt=.95;
+    n4L0.tgt=.92;n4L3.tgt=ept>.3?.85:0;if(ept>.42)n4L1.tgt=.88;if(ept>.64)n4L2.tgt=.92;
+    if(ept>.45)showQR();
+  } else {
+    centD.m.opacity*=.95;centD.w.opacity*=.95;if(centD._coreM)centD._coreM.opacity*=.95;if(centD._auraM)centD._auraM.opacity*=.95;if(centD._ring1M)centD._ring1M.opacity*=.95;if(centD._ring2M)centD._ring2M.opacity*=.95;if(centD._spM)centD._spM.opacity*=.95;
+    centL.intensity*=.93;centL2.intensity*=.93;NNS.forEach(function(n){n.nm.opacity*=.95;});NES.forEach(function(m){m.opacity*=.95;});NPTS.forEach(function(p){p.m.opacity*=.95;});nLbls.forEach(function(s){s.material.opacity*=.95;});
+    btwNodeM.opacity*=.95;btwRingM.opacity*=.95;btwLineM.opacity*=.95;btwPL.intensity*=.93;
+  }
+
+  SPTS.forEach(function(s){s.material.opacity=L(s.material.opacity,s.tgt,.055);});
+  cX=L(cX,cTX,.02);cY=L(cY,cTY,.02);cZ=L(cZ,cTZ,.02);
+  camera.position.set(cX+Math.sin(T*.005)*.6,cY+Math.sin(T*.0035)*.18,cZ);camera.lookAt(new THREE.Vector3(cX,cY*.2,0));
+  if(autoMode&&phT>=dur)gotoPhase((ph+1)%5);
+  renderer.render(scene,camera);drawBloom();
+}
+
+setUI(0);render();
+setTimeout(function(){document.getElementById('swipeHint').style.transition='opacity 1s';document.getElementById('swipeHint').style.opacity='0';},6000);
+</script>
+</body>
+</html>
